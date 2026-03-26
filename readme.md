@@ -52,7 +52,7 @@ O sistema foi concebido para atender aos seguintes requisitos básicos:
 git clone [https://github.com/seu-usuario/nome-do-repositorio.git](https://github.com/seu-usuario/nome-do-repositorio.git)
 
 # 2. Entre na pasta do projeto
-cd nome-do-repositorio
+cd SCRUM
 
 # 3. Siga as instruções específicas de instalação (Exemplo)
 npm install
