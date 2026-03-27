@@ -70,6 +70,73 @@ Funcionalidade para liberar um espaço previamente agendado:
 
 ---
 
+## 🛠️ Como Iniciar o Projeto
+
+### Pré-requisitos
+- [Node.js](https://nodejs.org/) v18 ou superior
+- npm
+
+### Configuração
+
+1. Entre na pasta do backend e instale as dependências:
+```bash
+cd backend
+npm install
+```
+
+2. Crie o arquivo de variáveis de ambiente copiando o exemplo:
+```bash
+cp .env.example .env
+```
+
+3. Preencha o `.env` com as credenciais do banco (Supabase → Settings → Database):
+```env
+DB_HOST=db.XXXXXXXXXX.supabase.co
+DB_PORT=5432
+DB_NAME=postgres
+DB_USER=postgres
+DB_PASSWORD=SUA_SENHA_AQUI
+PORT=3003
+```
+
+4. Inicie o servidor:
+```bash
+npm run dev    # desenvolvimento (hot reload)
+# ou
+npm start      # produção
+```
+
+O servidor estará disponível em `http://localhost:3003`.
+
+### Documentação da API
+
+Após iniciar o servidor, acesse a documentação interativa gerada automaticamente pelo Swagger:
+
+```
+http://localhost:3003/api/docs
+```
+
+Lá você pode visualizar todas as rotas disponíveis e fazer requisições de teste direto pelo browser.
+
+---
+
+## 🧱 Stack do Backend
+
+O backend foi construído com **JavaScript** e **[Express](https://expressjs.com/)**, conectando diretamente ao banco PostgreSQL via driver `pg`.
+
+> **Quer trocar a stack?** Sem problema. O banco de dados (Supabase/PostgreSQL) e o schema SQL são independentes do backend. Você pode reescrever a API em qualquer linguagem ou framework — Python (FastAPI/Django), Java (Spring), Go, PHP, etc. — bastando apontar para o mesmo banco com as mesmas credenciais do `.env`.
+
+### Endpoints disponíveis
+
+| Recurso | Base URL |
+|---|---|
+| Salas e Laboratórios | `http://localhost:3003/api/salas` |
+| Usuários | `http://localhost:3003/api/usuarios` |
+| Equipamentos | `http://localhost:3003/api/equipamentos` |
+| Health check | `http://localhost:3003/api/health` |
+
+---
+
 ## ⚙️ Requisitos Técnicos e Usabilidade
 
 - **Plataforma:** Sistema Web Responsivo (acessível via Desktop e Mobile)
