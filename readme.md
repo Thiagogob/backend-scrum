@@ -166,7 +166,7 @@ Entregar a base de cadastros e a visualização principal do sistema.
 - [ ] Telas e banco de dados prontos para cadastrar **Equipamentos** (Projetor, Ar-condicionado, etc.)
 
 ### Interface & Design
-- [ ] **Página Inicial** — design limpo focado na busca de salas
+- [x] **Página Inicial** — design limpo focado na busca de salas
 - [ ] **Mapa de Ocupação** — visualização clara de quais salas estão **LIVRES** e quais estão **RESERVADAS**
 - [ ] **Formulários** — telas de cadastro simples e fáceis de preencher
 
