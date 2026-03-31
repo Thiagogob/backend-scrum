@@ -7,7 +7,6 @@ const pool = new Pool({
   user:     process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   ssl:      { rejectUnauthorized: false }, // necessário para Supabase
-  family:   4, // força IPv4 (Railway não suporta IPv6 para conexões externas)
 });
 
 pool.on('error', (err) => {
