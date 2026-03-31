@@ -11,6 +11,10 @@ const options = {
     },
     servers: [
       {
+        url: 'https://backend-scrum-production.up.railway.app',
+        description: 'Servidor de produção (Railway)',
+      },
+      {
         url: `http://localhost:${process.env.PORT || 3003}`,
         description: 'Servidor local',
       },
