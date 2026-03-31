@@ -1,0 +1,8 @@
+{
+  "name": "backend-scrum",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "cd backend && node server.js",
+    "postinstall": "cd backend && npm install"
+  }
+}
