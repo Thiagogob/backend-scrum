@@ -42,12 +42,18 @@ const options = {
           type: 'object',
           properties: {
             id: { type: 'string', format: 'uuid', readOnly: true },
-            auth_id: { type: 'string', format: 'uuid', nullable: true },
             nome: { type: 'string', example: 'Prof. João Silva' },
             email: {
               type: 'string',
               format: 'email',
               example: 'joao.silva@universidade.edu.br',
+            },
+            senha: {
+              type: 'string',
+              format: 'password',
+              writeOnly: true,
+              minLength: 6,
+              example: 'minhasenha123',
             },
             tipo: {
               type: 'string',
@@ -57,7 +63,7 @@ const options = {
             ativo: { type: 'boolean', example: true },
             criado_em: { type: 'string', format: 'date-time', readOnly: true },
           },
-          required: ['nome', 'email', 'tipo'],
+          required: ['nome', 'email', 'senha', 'tipo'],
         },
         Equipamento: {
           type: 'object',

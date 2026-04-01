@@ -1,5 +1,6 @@
 const { Router } = require('express');
 const pool = require('../config/db');
+const supabase = require('../config/supabase');
 
 const router = Router();
 
@@ -121,6 +122,7 @@ router.get('/:id', async (req, res) => {
  *           example:
  *             nome: "Prof. Maria Santos"
  *             email: "maria.santos@universidade.edu.br"
+ *             senha: "minhasenha123"
  *             tipo: "professor"
  *     responses:
  *       201:
@@ -131,10 +133,10 @@ router.get('/:id', async (req, res) => {
  *         description: Erro interno
  */
 router.post('/', async (req, res) => {
-  const { nome, email, tipo } = req.body;
+  const { nome, email, senha, tipo } = req.body;
 
-  if (!nome || !email || !tipo) {
-    return res.status(400).json({ error: 'Campos obrigatórios: nome, email, tipo' });
+  if (!nome || !email || !senha || !tipo) {
+    return res.status(400).json({ error: 'Campos obrigatórios: nome, email, senha, tipo' });
   }
   if (!['professor', 'admin_cpd'].includes(tipo)) {
     return res.status(400).json({ error: 'tipo deve ser "professor" ou "admin_cpd"' });
@@ -143,19 +145,30 @@ router.post('/', async (req, res) => {
   if (!emailRegex.test(email)) {
     return res.status(400).json({ error: 'E-mail inválido' });
   }
-
-  try {
-    const { rows } = await pool.query(
-      `INSERT INTO usuario (nome, email, tipo)
-       VALUES ($1, $2, $3)
-       RETURNING id, nome, email, tipo, ativo, criado_em`,
-      [nome, email, tipo]
-    );
-    res.status(201).json(rows[0]);
-  } catch (err) {
-    if (err.code === '23505') return res.status(400).json({ error: 'E-mail já cadastrado' });
-    res.status(500).json({ error: err.message });
+  if (senha.length < 6) {
+    return res.status(400).json({ error: 'senha deve ter no mínimo 6 caracteres' });
   }
+
+  const { data, error } = await supabase.auth.admin.createUser({
+    email,
+    password: senha,
+    email_confirm: true,
+    user_metadata: { nome, tipo },
+  });
+
+  if (error) {
+    if (error.message.toLowerCase().includes('already registered')) {
+      return res.status(400).json({ error: 'E-mail já cadastrado' });
+    }
+    return res.status(500).json({ error: error.message });
+  }
+
+  // The trigger handle_new_user auto-creates the public.usuario record
+  const { rows } = await pool.query(
+    'SELECT id, nome, email, tipo, ativo, criado_em FROM usuario WHERE auth_id = $1',
+    [data.user.id]
+  );
+  res.status(201).json(rows[0]);
 });
 
 module.exports = router;

@@ -6,6 +6,7 @@ const swaggerSpec = require('./config/swagger');
 const salasRouter = require('./routes/salas');
 const usuariosRouter = require('./routes/usuarios');
 const equipamentosRouter = require('./routes/equipamentos');
+const authRouter = require('./routes/auth');
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.use(express.json());
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Rotas
+app.use('/api/auth', authRouter);
 app.use('/api/salas', salasRouter);
 app.use('/api/usuarios', usuariosRouter);
 app.use('/api/equipamentos', equipamentosRouter);
