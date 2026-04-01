@@ -163,12 +163,23 @@ router.post('/', async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 
-  // The trigger handle_new_user auto-creates the public.usuario record
+  // Upsert into public.usuario — trigger may have already done this, ON CONFLICT handles the duplicate
   const { rows } = await pool.query(
+    `INSERT INTO usuario (auth_id, nome, email, tipo)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (auth_id) DO NOTHING
+     RETURNING id, nome, email, tipo, ativo, criado_em`,
+    [data.user.id, nome, email, tipo]
+  );
+
+  if (rows.length > 0) return res.status(201).json(rows[0]);
+
+  // Trigger already inserted it — just fetch
+  const { rows: existing } = await pool.query(
     'SELECT id, nome, email, tipo, ativo, criado_em FROM usuario WHERE auth_id = $1',
     [data.user.id]
   );
-  res.status(201).json(rows[0]);
+  res.status(201).json(existing[0]);
 });
 
 module.exports = router;
