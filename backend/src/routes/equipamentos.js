@@ -120,4 +120,99 @@ router.post('/', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/equipamentos/{id}:
+ *   put:
+ *     summary: Atualiza os dados de um equipamento
+ *     tags: [Equipamentos]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Equipamento'
+ *           example:
+ *             nome: "Projetor Full HD"
+ *             descricao: "Projetor multimídia HDMI/VGA 1080p"
+ *     responses:
+ *       200:
+ *         description: Equipamento atualizado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Equipamento'
+ *       400:
+ *         description: Dados inválidos
+ *       404:
+ *         description: Equipamento não encontrado
+ *       500:
+ *         description: Erro interno
+ */
+router.put('/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nome, descricao } = req.body;
+
+  const fields = [];
+  const values = [];
+
+  if (nome !== undefined) { values.push(nome); fields.push(`nome = $${values.length}`); }
+  if (descricao !== undefined) { values.push(descricao); fields.push(`descricao = $${values.length}`); }
+
+  if (fields.length === 0) return res.status(400).json({ error: 'Nenhum campo fornecido para atualização' });
+
+  values.push(id);
+  try {
+    const { rows, rowCount } = await pool.query(
+      `UPDATE equipamento SET ${fields.join(', ')} WHERE id = $${values.length} RETURNING *`,
+      values
+    );
+    if (rowCount === 0) return res.status(404).json({ error: 'Equipamento não encontrado' });
+    res.json(rows[0]);
+  } catch (err) {
+    if (err.code === '23505') return res.status(400).json({ error: 'Já existe um equipamento com esse nome' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/equipamentos/{id}:
+ *   delete:
+ *     summary: Remove um equipamento
+ *     tags: [Equipamentos]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       204:
+ *         description: Equipamento removido
+ *       404:
+ *         description: Equipamento não encontrado
+ *       500:
+ *         description: Erro interno
+ */
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const { rowCount } = await pool.query('DELETE FROM equipamento WHERE id = $1', [id]);
+    if (rowCount === 0) return res.status(404).json({ error: 'Equipamento não encontrado' });
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

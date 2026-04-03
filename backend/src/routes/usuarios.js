@@ -182,4 +182,115 @@ router.post('/', async (req, res) => {
   res.status(201).json(existing[0]);
 });
 
+/**
+ * @swagger
+ * /api/usuarios/{id}:
+ *   put:
+ *     summary: Atualiza os dados de um usuário
+ *     tags: [Usuários]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nome:
+ *                 type: string
+ *               tipo:
+ *                 type: string
+ *                 enum: [professor, admin_cpd]
+ *               ativo:
+ *                 type: boolean
+ *           example:
+ *             nome: "Prof. João Silva"
+ *             tipo: "professor"
+ *             ativo: true
+ *     responses:
+ *       200:
+ *         description: Usuário atualizado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Usuario'
+ *       400:
+ *         description: Dados inválidos
+ *       404:
+ *         description: Usuário não encontrado
+ *       500:
+ *         description: Erro interno
+ */
+router.put('/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nome, tipo, ativo } = req.body;
+
+  if (tipo !== undefined && !['professor', 'admin_cpd'].includes(tipo)) {
+    return res.status(400).json({ error: 'tipo deve ser "professor" ou "admin_cpd"' });
+  }
+
+  const fields = [];
+  const values = [];
+
+  if (nome !== undefined) { values.push(nome); fields.push(`nome = $${values.length}`); }
+  if (tipo !== undefined) { values.push(tipo); fields.push(`tipo = $${values.length}`); }
+  if (ativo !== undefined) { values.push(ativo); fields.push(`ativo = $${values.length}`); }
+
+  if (fields.length === 0) return res.status(400).json({ error: 'Nenhum campo fornecido para atualização' });
+
+  values.push(id);
+  try {
+    const { rows, rowCount } = await pool.query(
+      `UPDATE usuario SET ${fields.join(', ')} WHERE id = $${values.length} RETURNING id, nome, email, tipo, ativo, criado_em`,
+      values
+    );
+    if (rowCount === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/usuarios/{id}:
+ *   delete:
+ *     summary: Desativa um usuário (soft delete)
+ *     tags: [Usuários]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Usuário desativado
+ *       404:
+ *         description: Usuário não encontrado
+ *       500:
+ *         description: Erro interno
+ */
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const { rows, rowCount } = await pool.query(
+      'UPDATE usuario SET ativo = false WHERE id = $1 RETURNING id, nome, email, tipo, ativo, criado_em',
+      [id]
+    );
+    if (rowCount === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

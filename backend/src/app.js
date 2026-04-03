@@ -7,6 +7,7 @@ const salasRouter = require('./routes/salas');
 const usuariosRouter = require('./routes/usuarios');
 const equipamentosRouter = require('./routes/equipamentos');
 const authRouter = require('./routes/auth');
+const reservasRouter = require('./routes/reservas');
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/salas', salasRouter);
 app.use('/api/usuarios', usuariosRouter);
 app.use('/api/equipamentos', equipamentosRouter);
+app.use('/api/reservas', reservasRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -219,4 +219,158 @@ router.post('/:id/equipamentos', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/salas/{id}/equipamentos/{equipamento_id}:
+ *   delete:
+ *     summary: Remove um equipamento de uma sala
+ *     tags: [Salas]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID da sala
+ *       - in: path
+ *         name: equipamento_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID do equipamento
+ *     responses:
+ *       204:
+ *         description: Equipamento removido da sala
+ *       404:
+ *         description: Associação não encontrada
+ *       500:
+ *         description: Erro interno
+ */
+router.delete('/:id/equipamentos/:equipamento_id', async (req, res) => {
+  const { id: sala_id, equipamento_id } = req.params;
+
+  try {
+    const { rowCount } = await pool.query(
+      'DELETE FROM sala_equipamento WHERE sala_id = $1 AND equipamento_id = $2',
+      [sala_id, equipamento_id]
+    );
+    if (rowCount === 0) return res.status(404).json({ error: 'Associação não encontrada' });
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/salas/{id}:
+ *   put:
+ *     summary: Atualiza os dados de uma sala
+ *     tags: [Salas]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Sala'
+ *           example:
+ *             nome_numero: "C-301"
+ *             bloco: "Bloco C"
+ *             capacidade: 40
+ *             tipo_sala: "laboratorio"
+ *             ativo: true
+ *     responses:
+ *       200:
+ *         description: Sala atualizada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Sala'
+ *       400:
+ *         description: Dados inválidos
+ *       404:
+ *         description: Sala não encontrada
+ *       500:
+ *         description: Erro interno
+ */
+router.put('/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nome_numero, bloco, capacidade, tipo_sala, ativo } = req.body;
+
+  if (tipo_sala !== undefined && !['sala_aula', 'laboratorio'].includes(tipo_sala)) {
+    return res.status(400).json({ error: 'tipo_sala deve ser "sala_aula" ou "laboratorio"' });
+  }
+  if (capacidade !== undefined && (!Number.isInteger(Number(capacidade)) || Number(capacidade) < 1)) {
+    return res.status(400).json({ error: 'capacidade deve ser um inteiro maior que 0' });
+  }
+
+  const fields = [];
+  const values = [];
+
+  if (nome_numero !== undefined) { values.push(nome_numero); fields.push(`nome_numero = $${values.length}`); }
+  if (bloco !== undefined) { values.push(bloco); fields.push(`bloco = $${values.length}`); }
+  if (capacidade !== undefined) { values.push(Number(capacidade)); fields.push(`capacidade = $${values.length}`); }
+  if (tipo_sala !== undefined) { values.push(tipo_sala); fields.push(`tipo_sala = $${values.length}`); }
+  if (ativo !== undefined) { values.push(ativo); fields.push(`ativo = $${values.length}`); }
+
+  if (fields.length === 0) return res.status(400).json({ error: 'Nenhum campo fornecido para atualização' });
+
+  values.push(id);
+  try {
+    const { rows, rowCount } = await pool.query(
+      `UPDATE sala SET ${fields.join(', ')} WHERE id = $${values.length} RETURNING *`,
+      values
+    );
+    if (rowCount === 0) return res.status(404).json({ error: 'Sala não encontrada' });
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/salas/{id}:
+ *   delete:
+ *     summary: Desativa uma sala (soft delete)
+ *     tags: [Salas]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Sala desativada
+ *       404:
+ *         description: Sala não encontrada
+ *       500:
+ *         description: Erro interno
+ */
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const { rows, rowCount } = await pool.query(
+      'UPDATE sala SET ativo = false WHERE id = $1 RETURNING *',
+      [id]
+    );
+    if (rowCount === 0) return res.status(404).json({ error: 'Sala não encontrada' });
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

@@ -86,6 +86,38 @@ const options = {
           },
           required: ['equipamento_id', 'quantidade'],
         },
+        Reserva: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid', readOnly: true },
+            sala_id: { type: 'string', format: 'uuid' },
+            usuario_id: { type: 'string', format: 'uuid' },
+            criado_por: { type: 'string', format: 'uuid' },
+            data: { type: 'string', format: 'date', example: '2026-04-10' },
+            turno: { type: 'string', enum: ['matutino', 'vespertino', 'noturno'] },
+            aula_numero: { type: 'integer', minimum: 1, maximum: 4, example: 1 },
+            hora_inicio: { type: 'string', example: '07:00' },
+            hora_fim: { type: 'string', example: '07:50' },
+            status: { type: 'string', enum: ['ativa', 'cancelada', 'concluida'], example: 'ativa' },
+            motivo: { type: 'string', nullable: true, example: 'Aula de Algoritmos' },
+            criado_em: { type: 'string', format: 'date-time', readOnly: true },
+            cancelado_em: { type: 'string', format: 'date-time', nullable: true, readOnly: true },
+            cancelado_por: { type: 'string', format: 'uuid', nullable: true },
+          },
+        },
+        ReservaInput: {
+          type: 'object',
+          required: ['sala_id', 'usuario_id', 'data', 'turno', 'aula_numero'],
+          properties: {
+            sala_id: { type: 'string', format: 'uuid' },
+            usuario_id: { type: 'string', format: 'uuid' },
+            criado_por: { type: 'string', format: 'uuid', description: 'Omitir quando o próprio professor reserva' },
+            data: { type: 'string', format: 'date', example: '2026-04-10' },
+            turno: { type: 'string', enum: ['matutino', 'vespertino', 'noturno'] },
+            aula_numero: { type: 'integer', minimum: 1, maximum: 4, example: 1 },
+            motivo: { type: 'string', nullable: true },
+          },
+        },
         Error: {
           type: 'object',
           properties: {
