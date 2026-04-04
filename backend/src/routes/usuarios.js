@@ -120,9 +120,9 @@ router.get('/:id', async (req, res) => {
  *           schema:
  *             $ref: '#/components/schemas/Usuario'
  *           example:
- *             nome: "Prof. Maria Santos"
- *             email: "maria.santos@universidade.edu.br"
- *             senha: "minhasenha123"
+ *             nome: "Prof. Teste Silva"
+ *             email: "teste.silva@universidade.edu.br"
+ *             senha: "senha123"
  *             tipo: "professor"
  *     responses:
  *       201:
