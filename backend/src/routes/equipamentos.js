@@ -14,11 +14,16 @@ const router = Router();
  * @swagger
  * /api/equipamentos:
  *   get:
- *     summary: Lista todos os equipamentos
+ *     summary: Lista todos os equipamentos cadastrados
  *     tags: [Equipamentos]
+ *     description: |
+ *       Retorna todos os equipamentos disponíveis no sistema, ordenados por nome.
+ *       Equipamentos são itens que podem ser associados a salas (ex.: Projetor, Ar-condicionado, Lousa Digital).
+ *
+ *       Para ver em quais salas um equipamento específico está instalado, use **GET /api/equipamentos/{id}**.
  *     responses:
  *       200:
- *         description: Lista de equipamentos
+ *         description: Lista de equipamentos retornada com sucesso
  *         content:
  *           application/json:
  *             schema:
@@ -26,7 +31,7 @@ const router = Router();
  *               items:
  *                 $ref: '#/components/schemas/Equipamento'
  *       500:
- *         description: Erro interno
+ *         description: Erro interno do servidor
  */
 router.get('/', async (req, res) => {
   try {
@@ -41,8 +46,14 @@ router.get('/', async (req, res) => {
  * @swagger
  * /api/equipamentos/{id}:
  *   get:
- *     summary: Busca um equipamento pelo ID (inclui salas que o possuem)
+ *     summary: Busca um equipamento pelo ID (inclui salas onde está instalado)
  *     tags: [Equipamentos]
+ *     description: |
+ *       Retorna os dados de um equipamento específico, incluindo a lista de salas em que ele está instalado e a quantidade disponível em cada uma.
+ *
+ *       **Resposta inclui:**
+ *       - Dados do equipamento (`id`, `nome`, `descricao`)
+ *       - `salas`: array com as salas que possuem este equipamento, contendo `id`, `nome_numero`, `bloco`, `tipo_sala` e `quantidade`
  *     parameters:
  *       - in: path
  *         name: id
@@ -50,13 +61,20 @@ router.get('/', async (req, res) => {
  *         schema:
  *           type: string
  *           format: uuid
+ *         description: ID único do equipamento (UUID)
  *     responses:
  *       200:
- *         description: Equipamento encontrado
+ *         description: Equipamento encontrado com lista de salas onde está instalado
  *       404:
- *         description: Equipamento não encontrado
+ *         description: Nenhum equipamento encontrado com o ID informado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Equipamento não encontrado"
  *       500:
- *         description: Erro interno
+ *         description: Erro interno do servidor
  */
 router.get('/:id', async (req, res) => {
   const { id } = req.params;
@@ -86,6 +104,10 @@ router.get('/:id', async (req, res) => {
  *   post:
  *     summary: Cadastra um novo equipamento
  *     tags: [Equipamentos]
+ *     description: |
+ *       Cria um novo tipo de equipamento no sistema. Após criar, associe-o às salas que o possuem usando **POST /api/salas/{id}/equipamentos**.
+ *
+ *       **Regra:** o `nome` do equipamento deve ser único — não é possível ter dois equipamentos com o mesmo nome.
  *     requestBody:
  *       required: true
  *       content:
@@ -98,10 +120,27 @@ router.get('/:id', async (req, res) => {
  *     responses:
  *       201:
  *         description: Equipamento criado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Equipamento'
  *       400:
- *         description: Nome obrigatório ou já existente
+ *         description: Nome não informado ou já existe um equipamento com esse nome
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             examples:
+ *               nome_ausente:
+ *                 summary: Campo nome não enviado
+ *                 value:
+ *                   error: "Campo obrigatório: nome"
+ *               nome_duplicado:
+ *                 summary: Nome já cadastrado
+ *                 value:
+ *                   error: "Já existe um equipamento com esse nome"
  *       500:
- *         description: Erro interno
+ *         description: Erro interno do servidor
  */
 router.post('/', async (req, res) => {
   const { nome, descricao } = req.body;
@@ -126,6 +165,12 @@ router.post('/', async (req, res) => {
  *   put:
  *     summary: Atualiza os dados de um equipamento
  *     tags: [Equipamentos]
+ *     description: |
+ *       Atualiza parcialmente os dados de um equipamento. Envie apenas os campos que deseja alterar.
+ *
+ *       **Campos atualizáveis:** `nome`, `descricao`
+ *
+ *       **Atenção:** se alterar o `nome`, certifique-se de que não existe outro equipamento com o mesmo nome.
  *     parameters:
  *       - in: path
  *         name: id
@@ -133,6 +178,7 @@ router.post('/', async (req, res) => {
  *         schema:
  *           type: string
  *           format: uuid
+ *         description: ID único do equipamento
  *     requestBody:
  *       required: true
  *       content:
@@ -144,17 +190,29 @@ router.post('/', async (req, res) => {
  *             descricao: "Projetor multimídia HDMI/VGA 1080p"
  *     responses:
  *       200:
- *         description: Equipamento atualizado
+ *         description: Equipamento atualizado com sucesso
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Equipamento'
  *       400:
- *         description: Dados inválidos
+ *         description: Nenhum campo enviado ou nome duplicado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Nenhum campo fornecido para atualização"
  *       404:
  *         description: Equipamento não encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Equipamento não encontrado"
  *       500:
- *         description: Erro interno
+ *         description: Erro interno do servidor
  */
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
@@ -186,8 +244,12 @@ router.put('/:id', async (req, res) => {
  * @swagger
  * /api/equipamentos/{id}:
  *   delete:
- *     summary: Remove um equipamento
+ *     summary: Remove um equipamento permanentemente
  *     tags: [Equipamentos]
+ *     description: |
+ *       Remove o equipamento do sistema. **Esta operação é permanente** — diferente de salas e usuários, equipamentos são excluídos fisicamente do banco.
+ *
+ *       **Atenção:** ao remover um equipamento, ele também é desvinculado de todas as salas às quais estava associado.
  *     parameters:
  *       - in: path
  *         name: id
@@ -195,13 +257,20 @@ router.put('/:id', async (req, res) => {
  *         schema:
  *           type: string
  *           format: uuid
+ *         description: ID único do equipamento a ser removido
  *     responses:
  *       204:
- *         description: Equipamento removido
+ *         description: Equipamento removido com sucesso. Nenhum conteúdo retornado.
  *       404:
  *         description: Equipamento não encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Equipamento não encontrado"
  *       500:
- *         description: Erro interno
+ *         description: Erro interno do servidor
  */
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;

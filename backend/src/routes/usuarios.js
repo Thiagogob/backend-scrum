@@ -15,23 +15,30 @@ const router = Router();
  * @swagger
  * /api/usuarios:
  *   get:
- *     summary: Lista todos os usuários
+ *     summary: Lista todos os usuários cadastrados
  *     tags: [Usuários]
+ *     description: |
+ *       Retorna a lista de usuários do sistema. Por padrão, retorna todos os usuários (ativos e inativos).
+ *       Use os filtros para refinar a busca.
+ *
+ *       **Tipos de usuário:**
+ *       - `professor`: pode criar reservas apenas dentro do mês corrente
+ *       - `admin_cpd`: sem restrição de mês, pode criar reservas em nome de professores
  *     parameters:
  *       - in: query
  *         name: tipo
  *         schema:
  *           type: string
  *           enum: [professor, admin_cpd]
- *         description: Filtrar por tipo de usuário
+ *         description: Filtra pelo tipo de usuário
  *       - in: query
  *         name: ativo
  *         schema:
  *           type: boolean
- *         description: Filtrar por status ativo
+ *         description: 'Filtra por status. Use `true` para listar apenas usuários ativos, `false` para desativados'
  *     responses:
  *       200:
- *         description: Lista de usuários
+ *         description: Lista de usuários retornada com sucesso. A senha nunca é incluída na resposta.
  *         content:
  *           application/json:
  *             schema:
@@ -39,7 +46,7 @@ const router = Router();
  *               items:
  *                 $ref: '#/components/schemas/Usuario'
  *       500:
- *         description: Erro interno
+ *         description: Erro interno do servidor
  */
 router.get('/', async (req, res) => {
   const { tipo, ativo } = req.query;
@@ -73,6 +80,7 @@ router.get('/', async (req, res) => {
  *   get:
  *     summary: Busca um usuário pelo ID
  *     tags: [Usuários]
+ *     description: Retorna os dados de um usuário específico. A senha nunca é retornada.
  *     parameters:
  *       - in: path
  *         name: id
@@ -80,6 +88,7 @@ router.get('/', async (req, res) => {
  *         schema:
  *           type: string
  *           format: uuid
+ *         description: ID único do usuário (UUID)
  *     responses:
  *       200:
  *         description: Usuário encontrado
@@ -88,9 +97,15 @@ router.get('/', async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Usuario'
  *       404:
- *         description: Usuário não encontrado
+ *         description: Nenhum usuário encontrado com o ID informado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Usuário não encontrado"
  *       500:
- *         description: Erro interno
+ *         description: Erro interno do servidor
  */
 router.get('/:id', async (req, res) => {
   const { id } = req.params;
@@ -113,6 +128,17 @@ router.get('/:id', async (req, res) => {
  *   post:
  *     summary: Cadastra um novo usuário (professor ou admin_cpd)
  *     tags: [Usuários]
+ *     description: |
+ *       Cria um novo usuário no sistema. O usuário é registrado tanto no sistema de autenticação quanto na base de dados.
+ *
+ *       **Regras:**
+ *       - O email deve ser único — não é possível cadastrar dois usuários com o mesmo email
+ *       - A senha deve ter no mínimo 6 caracteres
+ *       - O `tipo` define as permissões do usuário no sistema de reservas
+ *
+ *       **Tipos disponíveis:**
+ *       - `professor`: acesso padrão, reservas apenas no mês corrente
+ *       - `admin_cpd`: acesso total, pode reservar qualquer data e criar reservas em nome de professores
  *     requestBody:
  *       required: true
  *       content:
@@ -126,11 +152,36 @@ router.get('/:id', async (req, res) => {
  *             tipo: "professor"
  *     responses:
  *       201:
- *         description: Usuário criado com sucesso
+ *         description: Usuário criado com sucesso. A senha não é retornada.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Usuario'
  *       400:
  *         description: Dados inválidos ou e-mail já cadastrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             examples:
+ *               campos_faltando:
+ *                 summary: Campos obrigatórios ausentes
+ *                 value:
+ *                   error: "Campos obrigatórios: nome, email, senha, tipo"
+ *               email_duplicado:
+ *                 summary: E-mail já em uso
+ *                 value:
+ *                   error: "E-mail já cadastrado"
+ *               senha_curta:
+ *                 summary: Senha muito curta
+ *                 value:
+ *                   error: "senha deve ter no mínimo 6 caracteres"
+ *               tipo_invalido:
+ *                 summary: Tipo inválido
+ *                 value:
+ *                   error: "tipo deve ser \"professor\" ou \"admin_cpd\""
  *       500:
- *         description: Erro interno
+ *         description: Erro interno do servidor
  */
 router.post('/', async (req, res) => {
   const { nome, email, senha, tipo } = req.body;
@@ -188,6 +239,12 @@ router.post('/', async (req, res) => {
  *   put:
  *     summary: Atualiza os dados de um usuário
  *     tags: [Usuários]
+ *     description: |
+ *       Atualiza parcialmente os dados de um usuário. Envie apenas os campos que deseja alterar — campos não enviados permanecem inalterados.
+ *
+ *       **Campos atualizáveis:** `nome`, `tipo`, `ativo`
+ *
+ *       **Não é possível alterar** o email ou a senha por esta rota.
  *     parameters:
  *       - in: path
  *         name: id
@@ -195,6 +252,7 @@ router.post('/', async (req, res) => {
  *         schema:
  *           type: string
  *           format: uuid
+ *         description: ID único do usuário
  *     requestBody:
  *       required: true
  *       content:
@@ -204,28 +262,43 @@ router.post('/', async (req, res) => {
  *             properties:
  *               nome:
  *                 type: string
+ *                 description: Novo nome do usuário
  *               tipo:
  *                 type: string
  *                 enum: [professor, admin_cpd]
+ *                 description: Novo tipo/perfil do usuário
  *               ativo:
  *                 type: boolean
+ *                 description: Use `false` para desativar o usuário ou `true` para reativá-lo
  *           example:
  *             nome: "Prof. João Silva"
  *             tipo: "professor"
  *             ativo: true
  *     responses:
  *       200:
- *         description: Usuário atualizado
+ *         description: Usuário atualizado com sucesso
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Usuario'
  *       400:
- *         description: Dados inválidos
+ *         description: Nenhum campo válido enviado ou tipo inválido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Nenhum campo fornecido para atualização"
  *       404:
  *         description: Usuário não encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Usuário não encontrado"
  *       500:
- *         description: Erro interno
+ *         description: Erro interno do servidor
  */
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
@@ -263,6 +336,10 @@ router.put('/:id', async (req, res) => {
  *   delete:
  *     summary: Desativa um usuário (soft delete)
  *     tags: [Usuários]
+ *     description: |
+ *       Desativa o usuário definindo `ativo = false`. **O registro não é removido do banco de dados.**
+ *
+ *       Para reativar um usuário desativado, use `PUT /api/usuarios/{id}` com `{ "ativo": true }`.
  *     parameters:
  *       - in: path
  *         name: id
@@ -270,13 +347,24 @@ router.put('/:id', async (req, res) => {
  *         schema:
  *           type: string
  *           format: uuid
+ *         description: ID único do usuário a ser desativado
  *     responses:
  *       200:
- *         description: Usuário desativado
+ *         description: Usuário desativado com sucesso. Retorna o registro atualizado com `ativo = false`.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Usuario'
  *       404:
  *         description: Usuário não encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Usuário não encontrado"
  *       500:
- *         description: Erro interno
+ *         description: Erro interno do servidor
  */
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;

@@ -37,11 +37,25 @@ const HORARIOS = {
  * @swagger
  * /api/reservas/horarios:
  *   get:
- *     summary: Retorna os horários disponíveis por turno e número de aula
+ *     summary: Retorna a tabela de horários por turno e número de aula
  *     tags: [Reservas]
+ *     description: |
+ *       Retorna o mapa completo de horários do sistema. Use esta rota para popular dropdowns e exibir horários reais no frontend, sem precisar hardcodar os valores.
+ *
+ *       **Como usar:**
+ *       1. Chame esta rota uma vez ao carregar a tela de reservas
+ *       2. Quando o usuário escolher um `turno` e um `aula_numero`, exiba `horarios[turno][aula_numero].hora_inicio` e `hora_fim`
+ *       3. Envie apenas `turno` e `aula_numero` no corpo da reserva — o backend calcula os horários automaticamente
+ *
+ *       **Tabela de horários:**
+ *       | Turno | Aula 1 | Aula 2 | Aula 3 | Aula 4 |
+ *       |---|---|---|---|---|
+ *       | Matutino | 08:00–08:50 | 08:55–09:45 | 09:55–10:45 | 10:50–11:40 |
+ *       | Vespertino | 13:00–13:50 | 13:55–14:45 | 14:55–15:45 | 15:50–16:40 |
+ *       | Noturno | 19:00–19:50 | 19:55–20:45 | 20:55–21:45 | 21:50–22:40 |
  *     responses:
  *       200:
- *         description: Mapa de turnos com horários de cada aula
+ *         description: Tabela de horários retornada com sucesso
  *         content:
  *           application/json:
  *             example:
@@ -71,6 +85,18 @@ router.get('/horarios', (req, res) => {
  *   get:
  *     summary: Consulta salas disponíveis para uma data e turno
  *     tags: [Reservas]
+ *     description: |
+ *       Retorna as salas que **não possuem reserva ativa** para a data, turno e (opcionalmente) número de aula informados.
+ *
+ *       **Parâmetros obrigatórios:** `data` e `turno`
+ *
+ *       **Comportamento do filtro `aula_numero`:**
+ *       - Se informado: retorna salas livres especificamente naquela aula
+ *       - Se omitido: retorna salas que não possuem **nenhuma** reserva em qualquer aula do turno
+ *
+ *       **Exemplo de uso típico no frontend:**
+ *       1. Usuário escolhe data e turno → chame esta rota para listar salas disponíveis
+ *       2. Usuário escolhe uma sala e uma aula → chame `POST /api/reservas` para confirmar
  *     parameters:
  *       - in: query
  *         name: data
@@ -78,32 +104,53 @@ router.get('/horarios', (req, res) => {
  *         schema:
  *           type: string
  *           format: date
- *         description: Data da consulta (YYYY-MM-DD)
+ *         description: 'Data da consulta no formato YYYY-MM-DD. Ex: 2026-04-10'
  *       - in: query
  *         name: turno
  *         required: true
  *         schema:
  *           type: string
  *           enum: [matutino, vespertino, noturno]
+ *         description: Turno a ser consultado
  *       - in: query
  *         name: aula_numero
  *         schema:
  *           type: integer
  *           minimum: 1
  *           maximum: 4
- *         description: Número da aula (1–4). Se omitido, retorna disponibilidade de todas as aulas.
+ *         description: 'Número da aula (1–4). Se omitido, verifica disponibilidade em todas as aulas do turno'
  *       - in: query
  *         name: tipo_sala
  *         schema:
  *           type: string
  *           enum: [sala_aula, laboratorio]
+ *         description: Filtra pelo tipo de espaço (opcional)
  *     responses:
  *       200:
- *         description: Lista de salas disponíveis
+ *         description: Lista de salas disponíveis no período informado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Sala'
  *       400:
- *         description: Parâmetros obrigatórios faltando
+ *         description: Parâmetros obrigatórios não informados ou turno inválido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             examples:
+ *               params_faltando:
+ *                 summary: data ou turno ausente
+ *                 value:
+ *                   error: "Parâmetros obrigatórios: data, turno"
+ *               turno_invalido:
+ *                 summary: Turno inválido
+ *                 value:
+ *                   error: "turno deve ser \"matutino\", \"vespertino\" ou \"noturno\""
  *       500:
- *         description: Erro interno
+ *         description: Erro interno do servidor
  */
 router.get('/disponibilidade', async (req, res) => {
   const { data, turno, aula_numero, tipo_sala } = req.query;
@@ -150,35 +197,54 @@ router.get('/disponibilidade', async (req, res) => {
  *   get:
  *     summary: Lista reservas com filtros opcionais
  *     tags: [Reservas]
+ *     description: |
+ *       Retorna as reservas cadastradas no sistema. Sem filtros, retorna todas as reservas.
+ *       Combine os filtros para buscar reservas específicas.
+ *
+ *       **Campos extras na resposta** (além dos campos da reserva):
+ *       - `nome_numero`: nome/número da sala reservada
+ *       - `bloco`: bloco da sala
+ *       - `tipo_sala`: tipo da sala
+ *       - `usuario_nome`: nome do professor que fez a reserva
+ *
+ *       **Exemplos de uso:**
+ *       - Reservas de um professor: `?usuario_id=<uuid>`
+ *       - Reservas de uma sala hoje: `?sala_id=<uuid>&data=2026-04-07`
+ *       - Todas as reservas ativas do turno noturno: `?status=ativa&turno=noturno`
  *     parameters:
  *       - in: query
  *         name: usuario_id
  *         schema:
  *           type: string
  *           format: uuid
+ *         description: Filtra as reservas de um professor específico
  *       - in: query
  *         name: sala_id
  *         schema:
  *           type: string
  *           format: uuid
+ *         description: Filtra as reservas de uma sala específica
  *       - in: query
  *         name: data
  *         schema:
  *           type: string
  *           format: date
+ *         description: 'Filtra por data (YYYY-MM-DD). Ex: 2026-04-10'
  *       - in: query
  *         name: turno
  *         schema:
  *           type: string
  *           enum: [matutino, vespertino, noturno]
+ *         description: Filtra pelo turno
  *       - in: query
  *         name: status
  *         schema:
  *           type: string
  *           enum: [ativa, cancelada, concluida]
+ *         description: 'Filtra pelo status da reserva. Use "ativa" para ver apenas reservas em vigor'
  *     responses:
  *       200:
- *         description: Lista de reservas
+ *         description: Lista de reservas retornada com sucesso, ordenada por data decrescente
  *         content:
  *           application/json:
  *             schema:
@@ -186,7 +252,7 @@ router.get('/disponibilidade', async (req, res) => {
  *               items:
  *                 $ref: '#/components/schemas/Reserva'
  *       500:
- *         description: Erro interno
+ *         description: Erro interno do servidor
  */
 router.get('/', async (req, res) => {
   const { usuario_id, sala_id, data, turno, status } = req.query;
@@ -226,6 +292,14 @@ router.get('/', async (req, res) => {
  *   get:
  *     summary: Busca uma reserva pelo ID
  *     tags: [Reservas]
+ *     description: |
+ *       Retorna os dados completos de uma reserva específica.
+ *
+ *       **Campos extras na resposta** (além dos campos padrão da reserva):
+ *       - `nome_numero`: nome/número da sala reservada
+ *       - `bloco`: bloco onde a sala está localizada
+ *       - `tipo_sala`: tipo da sala (`sala_aula` ou `laboratorio`)
+ *       - `usuario_nome`: nome do professor para quem a reserva foi feita
  *     parameters:
  *       - in: path
  *         name: id
@@ -233,17 +307,24 @@ router.get('/', async (req, res) => {
  *         schema:
  *           type: string
  *           format: uuid
+ *         description: ID único da reserva (UUID)
  *     responses:
  *       200:
- *         description: Reserva encontrada
+ *         description: Reserva encontrada com dados da sala e do usuário
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Reserva'
  *       404:
- *         description: Reserva não encontrada
+ *         description: Nenhuma reserva encontrada com o ID informado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Reserva não encontrada"
  *       500:
- *         description: Erro interno
+ *         description: Erro interno do servidor
  */
 router.get('/:id', async (req, res) => {
   const { id } = req.params;
@@ -270,8 +351,30 @@ router.get('/:id', async (req, res) => {
  * @swagger
  * /api/reservas:
  *   post:
- *     summary: Cria uma nova reserva
+ *     summary: Cria uma nova reserva de sala ou laboratório
  *     tags: [Reservas]
+ *     description: |
+ *       Cria uma reserva para um professor em uma sala específica. **Requer autenticação.**
+ *
+ *       **Campos obrigatórios:** `sala_id`, `usuario_id`, `data`, `turno`, `aula_numero`
+ *
+ *       **Como o horário é calculado:**
+ *       Você **não** precisa enviar `hora_inicio` e `hora_fim`. O backend calcula automaticamente com base no `turno` e `aula_numero`. Consulte `GET /api/reservas/horarios` para ver a tabela completa.
+ *
+ *       **Campo `criado_por`:**
+ *       - Se um **professor** está criando sua própria reserva: **omita este campo** (o backend usa o `usuario_id` automaticamente)
+ *       - Se um **admin_cpd** está criando em nome de um professor: envie o ID do admin neste campo
+ *
+ *       **Regras de negócio aplicadas:**
+ *       - ❌ Datas passadas não são permitidas
+ *       - ❌ Professores só podem reservar dentro do mês corrente
+ *       - ❌ Uma sala não pode ter duas reservas ativas no mesmo turno e aula
+ *       - ❌ Salas inativas não podem ser reservadas
+ *
+ *       **Fluxo recomendado no frontend:**
+ *       1. Chame `GET /api/reservas/disponibilidade?data=...&turno=...` para listar salas livres
+ *       2. Usuário escolhe a sala e a aula
+ *       3. Chame este endpoint com os dados selecionados
  *     requestBody:
  *       required: true
  *       content:
@@ -281,26 +384,57 @@ router.get('/:id', async (req, res) => {
  *           example:
  *             sala_id: "uuid-da-sala"
  *             usuario_id: "uuid-do-professor"
- *             criado_por: "uuid-do-criador"
+ *             criado_por: "uuid-do-admin-cpd"
  *             data: "2026-04-10"
  *             turno: "matutino"
  *             aula_numero: 1
- *             disciplina: "Aula de Algoritmos"
+ *             disciplina: "Banco de Dados"
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       201:
- *         description: Reserva criada com sucesso
+ *         description: Reserva criada com sucesso. Retorna o registro completo com `hora_inicio` e `hora_fim` calculados.
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Reserva'
  *       400:
- *         description: Dados inválidos ou conflito de horário
+ *         description: Dados inválidos ou regra de negócio violada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             examples:
+ *               campos_faltando:
+ *                 summary: Campos obrigatórios ausentes
+ *                 value:
+ *                   error: "Campos obrigatórios: sala_id, usuario_id, data, turno, aula_numero"
+ *               data_passada:
+ *                 summary: Data no passado
+ *                 value:
+ *                   error: "Não é permitido fazer reservas em datas passadas"
+ *               mes_diferente:
+ *                 summary: Professor tentando reservar fora do mês corrente
+ *                 value:
+ *                   error: "Professores só podem reservar salas dentro do mês corrente"
+ *               conflito:
+ *                 summary: Sala já reservada nesse horário
+ *                 value:
+ *                   error: "Sala já reservada nesse horário"
+ *               sala_inativa:
+ *                 summary: Sala inativa
+ *                 value:
+ *                   error: "Sala inativa"
  *       401:
- *         description: Token não fornecido ou inválido
+ *         description: Token JWT não enviado ou inválido. Faça login em POST /api/auth/login para obter o token.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Token de autenticação não fornecido"
  *       500:
- *         description: Erro interno
+ *         description: Erro interno do servidor
  */
 router.post('/', authMiddleware, async (req, res) => {
   const { sala_id, usuario_id, criado_por, data, turno, aula_numero, disciplina } = req.body;
@@ -379,6 +513,15 @@ router.post('/', authMiddleware, async (req, res) => {
  *   patch:
  *     summary: Cancela uma reserva ativa
  *     tags: [Reservas]
+ *     description: |
+ *       Cancela uma reserva que está com status `ativa`. **Requer autenticação.**
+ *
+ *       **O que acontece ao cancelar:**
+ *       - O status da reserva muda para `cancelada`
+ *       - Os campos `cancelado_em` (data/hora) e `cancelado_por` (ID do usuário) são preenchidos automaticamente
+ *       - A sala fica imediatamente disponível para novas reservas naquele horário
+ *
+ *       **Regra:** só é possível cancelar reservas com status `ativa`. Reservas já canceladas ou concluídas retornam erro 400.
  *     parameters:
  *       - in: path
  *         name: id
@@ -386,34 +529,63 @@ router.post('/', authMiddleware, async (req, res) => {
  *         schema:
  *           type: string
  *           format: uuid
+ *         description: ID da reserva a ser cancelada
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required: [cancelado_por]
  *             properties:
  *               cancelado_por:
  *                 type: string
  *                 format: uuid
- *                 description: ID do usuário que está cancelando
- *             required:
- *               - cancelado_por
+ *                 description: ID do usuário que está realizando o cancelamento (o próprio professor ou um admin_cpd)
  *           example:
  *             cancelado_por: "uuid-do-usuario"
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Reserva cancelada com sucesso
+ *         description: Reserva cancelada com sucesso. Retorna o registro atualizado com `status = "cancelada"`.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Reserva'
  *       400:
- *         description: Reserva não está ativa
+ *         description: Campo obrigatório ausente ou reserva não está ativa
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             examples:
+ *               campo_faltando:
+ *                 summary: cancelado_por não informado
+ *                 value:
+ *                   error: "Campo obrigatório: cancelado_por"
+ *               nao_ativa:
+ *                 summary: Reserva já cancelada ou concluída
+ *                 value:
+ *                   error: "Apenas reservas ativas podem ser canceladas"
  *       401:
- *         description: Token não fornecido ou inválido
+ *         description: Token JWT não enviado ou inválido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Token de autenticação não fornecido"
  *       404:
  *         description: Reserva não encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Reserva não encontrada"
  *       500:
- *         description: Erro interno
+ *         description: Erro interno do servidor
  */
 router.patch('/:id/cancelar', authMiddleware, async (req, res) => {
   const { id } = req.params;

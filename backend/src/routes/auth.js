@@ -16,8 +16,20 @@ const router = Router();
  * @swagger
  * /api/auth/login:
  *   post:
- *     summary: Autentica um usuário e retorna o token de acesso
+ *     summary: Autentica um usuário e retorna o token JWT
  *     tags: [Auth]
+ *     description: |
+ *       Realiza o login do usuário com email e senha. Em caso de sucesso, retorna um **token JWT** válido por 8 horas e os dados básicos do usuário autenticado.
+ *
+ *       **Como usar o token recebido:**
+ *       - Armazene o token no frontend (ex.: `localStorage.setItem('token', data.token)`)
+ *       - Envie-o em todas as requisições protegidas via header HTTP:
+ *         ```
+ *         Authorization: Bearer <token>
+ *         ```
+ *       - No Swagger UI: clique em **Authorize** (🔓) no topo da página, cole o token e confirme.
+ *
+ *       **O token expira em 8 horas.** Após isso, o usuário precisa fazer login novamente.
  *     requestBody:
  *       required: true
  *       content:
@@ -29,9 +41,11 @@ const router = Router();
  *               email:
  *                 type: string
  *                 format: email
+ *                 description: E-mail cadastrado do usuário
  *                 example: "teste.silva@universidade.edu.br"
  *               senha:
  *                 type: string
+ *                 description: Senha do usuário (mínimo 6 caracteres)
  *                 example: "senha123"
  *     responses:
  *       200:
@@ -43,14 +57,28 @@ const router = Router();
  *               properties:
  *                 token:
  *                   type: string
+ *                   description: Token JWT para ser usado nas requisições protegidas
+ *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
  *                 usuario:
  *                   $ref: '#/components/schemas/Usuario'
  *       400:
- *         description: Campos obrigatórios ausentes
+ *         description: Email ou senha não informados
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Campos obrigatórios: email, senha"
  *       401:
- *         description: Credenciais inválidas
+ *         description: Email ou senha incorretos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Credenciais inválidas"
  *       500:
- *         description: Erro interno
+ *         description: Erro interno do servidor
  */
 router.post('/login', async (req, res) => {
   const { email, senha } = req.body;

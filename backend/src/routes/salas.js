@@ -14,28 +14,33 @@ const router = Router();
  * @swagger
  * /api/salas:
  *   get:
- *     summary: Lista todas as salas
+ *     summary: Lista todas as salas e laboratórios
  *     tags: [Salas]
+ *     description: |
+ *       Retorna a lista de salas cadastradas no sistema, ordenadas por bloco e nome/número.
+ *       Use os filtros para refinar a busca por tipo ou localização.
+ *
+ *       **Dica:** para montar a tela de disponibilidade, combine esta rota com **GET /api/reservas/disponibilidade**.
  *     parameters:
  *       - in: query
  *         name: tipo_sala
  *         schema:
  *           type: string
  *           enum: [sala_aula, laboratorio]
- *         description: Filtrar por tipo
+ *         description: 'Filtra pelo tipo: "sala_aula" para salas convencionais, "laboratorio" para laboratórios'
  *       - in: query
  *         name: bloco
  *         schema:
  *           type: string
- *         description: Filtrar por bloco. Exemplo - Bloco A
+ *         description: 'Filtra por bloco (busca parcial, sem distinção de maiúsculas). Ex: "Bloco A" retorna todas as salas que contenham "Bloco A" no nome'
  *       - in: query
  *         name: ativo
  *         schema:
  *           type: boolean
- *         description: Filtrar por status ativo (padrão true)
+ *         description: 'Filtra por status. Use `true` para listar apenas salas disponíveis para reserva'
  *     responses:
  *       200:
- *         description: Lista de salas
+ *         description: Lista de salas retornada com sucesso
  *         content:
  *           application/json:
  *             schema:
@@ -43,7 +48,7 @@ const router = Router();
  *               items:
  *                 $ref: '#/components/schemas/Sala'
  *       500:
- *         description: Erro interno
+ *         description: Erro interno do servidor
  */
 router.get('/', async (req, res) => {
   const { tipo_sala, bloco, ativo } = req.query;
@@ -79,8 +84,14 @@ router.get('/', async (req, res) => {
  * @swagger
  * /api/salas/{id}:
  *   get:
- *     summary: Busca uma sala pelo ID (inclui equipamentos)
+ *     summary: Busca uma sala pelo ID (inclui equipamentos instalados)
  *     tags: [Salas]
+ *     description: |
+ *       Retorna os dados completos de uma sala, incluindo a lista de equipamentos instalados nela com as respectivas quantidades.
+ *
+ *       **Resposta inclui:**
+ *       - Todos os campos da sala (`id`, `nome_numero`, `bloco`, `capacidade`, `tipo_sala`, `ativo`, `criado_em`)
+ *       - `equipamentos`: array com os equipamentos da sala, contendo `id`, `nome`, `descricao` e `quantidade`
  *     parameters:
  *       - in: path
  *         name: id
@@ -88,13 +99,20 @@ router.get('/', async (req, res) => {
  *         schema:
  *           type: string
  *           format: uuid
+ *         description: ID único da sala (UUID)
  *     responses:
  *       200:
  *         description: Sala encontrada com lista de equipamentos
  *       404:
- *         description: Sala não encontrada
+ *         description: Nenhuma sala encontrada com o ID informado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Sala não encontrada"
  *       500:
- *         description: Erro interno
+ *         description: Erro interno do servidor
  */
 router.get('/:id', async (req, res) => {
   const { id } = req.params;
@@ -124,6 +142,14 @@ router.get('/:id', async (req, res) => {
  *   post:
  *     summary: Cadastra uma nova sala ou laboratório
  *     tags: [Salas]
+ *     description: |
+ *       Cria uma nova sala no sistema. Após criar, você pode associar equipamentos a ela usando **POST /api/salas/{id}/equipamentos**.
+ *
+ *       **Campos obrigatórios:** `nome_numero`, `bloco`, `capacidade`, `tipo_sala`
+ *
+ *       **Valores aceitos para `tipo_sala`:**
+ *       - `sala_aula`: sala de aula convencional
+ *       - `laboratorio`: laboratório de informática ou ciências
  *     requestBody:
  *       required: true
  *       content:
@@ -138,10 +164,31 @@ router.get('/:id', async (req, res) => {
  *     responses:
  *       201:
  *         description: Sala criada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Sala'
  *       400:
  *         description: Dados inválidos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             examples:
+ *               campos_faltando:
+ *                 summary: Campos obrigatórios ausentes
+ *                 value:
+ *                   error: "Campos obrigatórios: nome_numero, bloco, capacidade, tipo_sala"
+ *               tipo_invalido:
+ *                 summary: Tipo de sala inválido
+ *                 value:
+ *                   error: "tipo_sala deve ser \"sala_aula\" ou \"laboratorio\""
+ *               capacidade_invalida:
+ *                 summary: Capacidade inválida
+ *                 value:
+ *                   error: "capacidade deve ser um inteiro maior que 0"
  *       500:
- *         description: Erro interno
+ *         description: Erro interno do servidor
  */
 router.post('/', async (req, res) => {
   const { nome_numero, bloco, capacidade, tipo_sala } = req.body;
@@ -173,8 +220,16 @@ router.post('/', async (req, res) => {
  * @swagger
  * /api/salas/{id}/equipamentos:
  *   post:
- *     summary: Associa (ou atualiza) um equipamento em uma sala
+ *     summary: Associa um equipamento a uma sala (ou atualiza a quantidade)
  *     tags: [Salas]
+ *     description: |
+ *       Vincula um equipamento a uma sala informando a quantidade disponível.
+ *
+ *       **Comportamento:**
+ *       - Se o equipamento **ainda não está** associado à sala: cria a associação
+ *       - Se o equipamento **já está** associado à sala: **atualiza a quantidade** (não duplica)
+ *
+ *       Para listar os equipamentos disponíveis para associar, use **GET /api/equipamentos**.
  *     parameters:
  *       - in: path
  *         name: id
@@ -182,20 +237,29 @@ router.post('/', async (req, res) => {
  *         schema:
  *           type: string
  *           format: uuid
- *         description: ID da sala
+ *         description: ID da sala onde o equipamento será instalado
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/SalaEquipamento'
+ *           example:
+ *             equipamento_id: "uuid-do-equipamento"
+ *             quantidade: 2
  *     responses:
  *       201:
- *         description: Equipamento associado com sucesso
+ *         description: Equipamento associado (ou quantidade atualizada) com sucesso
  *       400:
- *         description: Dados inválidos
+ *         description: Campos obrigatórios ausentes
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Campos obrigatórios: equipamento_id, quantidade"
  *       500:
- *         description: Erro interno
+ *         description: Erro interno do servidor
  */
 router.post('/:id/equipamentos', async (req, res) => {
   const { id: sala_id } = req.params;
@@ -223,8 +287,12 @@ router.post('/:id/equipamentos', async (req, res) => {
  * @swagger
  * /api/salas/{id}/equipamentos/{equipamento_id}:
  *   delete:
- *     summary: Remove um equipamento de uma sala
+ *     summary: Remove a associação de um equipamento com uma sala
  *     tags: [Salas]
+ *     description: |
+ *       Remove o vínculo entre o equipamento e a sala. **O equipamento em si não é excluído** — apenas a associação com esta sala é removida.
+ *
+ *       Para remover o equipamento do sistema completamente, use **DELETE /api/equipamentos/{id}**.
  *     parameters:
  *       - in: path
  *         name: id
@@ -239,14 +307,20 @@ router.post('/:id/equipamentos', async (req, res) => {
  *         schema:
  *           type: string
  *           format: uuid
- *         description: ID do equipamento
+ *         description: ID do equipamento a ser desvinculado da sala
  *     responses:
  *       204:
- *         description: Equipamento removido da sala
+ *         description: Associação removida com sucesso. Nenhum conteúdo retornado.
  *       404:
- *         description: Associação não encontrada
+ *         description: Associação não encontrada (o equipamento não estava vinculado a esta sala)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Associação não encontrada"
  *       500:
- *         description: Erro interno
+ *         description: Erro interno do servidor
  */
 router.delete('/:id/equipamentos/:equipamento_id', async (req, res) => {
   const { id: sala_id, equipamento_id } = req.params;
@@ -269,6 +343,12 @@ router.delete('/:id/equipamentos/:equipamento_id', async (req, res) => {
  *   put:
  *     summary: Atualiza os dados de uma sala
  *     tags: [Salas]
+ *     description: |
+ *       Atualiza parcialmente os dados de uma sala. Envie apenas os campos que deseja alterar — campos não enviados permanecem inalterados.
+ *
+ *       **Campos atualizáveis:** `nome_numero`, `bloco`, `capacidade`, `tipo_sala`, `ativo`
+ *
+ *       **Dica:** para reativar uma sala desativada, envie `{ "ativo": true }`.
  *     parameters:
  *       - in: path
  *         name: id
@@ -276,6 +356,7 @@ router.delete('/:id/equipamentos/:equipamento_id', async (req, res) => {
  *         schema:
  *           type: string
  *           format: uuid
+ *         description: ID único da sala
  *     requestBody:
  *       required: true
  *       content:
@@ -290,17 +371,29 @@ router.delete('/:id/equipamentos/:equipamento_id', async (req, res) => {
  *             ativo: true
  *     responses:
  *       200:
- *         description: Sala atualizada
+ *         description: Sala atualizada com sucesso
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Sala'
  *       400:
- *         description: Dados inválidos
+ *         description: Nenhum campo válido enviado ou valores inválidos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Nenhum campo fornecido para atualização"
  *       404:
  *         description: Sala não encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Sala não encontrada"
  *       500:
- *         description: Erro interno
+ *         description: Erro interno do servidor
  */
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
@@ -343,6 +436,12 @@ router.put('/:id', async (req, res) => {
  *   delete:
  *     summary: Desativa uma sala (soft delete)
  *     tags: [Salas]
+ *     description: |
+ *       Desativa a sala definindo `ativo = false`. **O registro não é removido do banco de dados.**
+ *
+ *       Salas desativadas não aparecem na consulta de disponibilidade e não aceitam novas reservas.
+ *
+ *       Para reativar uma sala desativada, use `PUT /api/salas/{id}` com `{ "ativo": true }`.
  *     parameters:
  *       - in: path
  *         name: id
@@ -350,13 +449,24 @@ router.put('/:id', async (req, res) => {
  *         schema:
  *           type: string
  *           format: uuid
+ *         description: ID único da sala a ser desativada
  *     responses:
  *       200:
- *         description: Sala desativada
+ *         description: Sala desativada com sucesso. Retorna o registro atualizado com `ativo = false`.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Sala'
  *       404:
  *         description: Sala não encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Sala não encontrada"
  *       500:
- *         description: Erro interno
+ *         description: Erro interno do servidor
  */
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;
