@@ -29,10 +29,10 @@ const router = Router();
  *               email:
  *                 type: string
  *                 format: email
- *                 example: "maria.santos@universidade.edu.br"
+ *                 example: "teste.silva@universidade.edu.br"
  *               senha:
  *                 type: string
- *                 example: "minhasenha123"
+ *                 example: "senha123"
  *     responses:
  *       200:
  *         description: Login realizado com sucesso
