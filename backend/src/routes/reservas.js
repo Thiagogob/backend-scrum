@@ -254,6 +254,8 @@ router.get('/:id', async (req, res) => {
  *             turno: "matutino"
  *             aula_numero: 1
  *             motivo: "Aula de Algoritmos"
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       201:
  *         description: Reserva criada com sucesso
@@ -263,6 +265,8 @@ router.get('/:id', async (req, res) => {
  *               $ref: '#/components/schemas/Reserva'
  *       400:
  *         description: Dados inválidos ou conflito de horário
+ *       401:
+ *         description: Token não fornecido ou inválido
  *       500:
  *         description: Erro interno
  */
@@ -365,11 +369,15 @@ router.post('/', authMiddleware, async (req, res) => {
  *               - cancelado_por
  *           example:
  *             cancelado_por: "uuid-do-usuario"
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Reserva cancelada com sucesso
  *       400:
  *         description: Reserva não está ativa
+ *       401:
+ *         description: Token não fornecido ou inválido
  *       404:
  *         description: Reserva não encontrada
  *       500:
