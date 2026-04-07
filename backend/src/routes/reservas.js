@@ -14,22 +14,22 @@ const router = Router();
 // Horários padrão por turno e número de aula
 const HORARIOS = {
   matutino: {
-    1: { hora_inicio: '07:00', hora_fim: '07:50' },
-    2: { hora_inicio: '07:55', hora_fim: '08:45' },
-    3: { hora_inicio: '09:00', hora_fim: '09:50' },
-    4: { hora_inicio: '09:55', hora_fim: '10:45' },
+    1: { hora_inicio: '08:00', hora_fim: '08:50' },
+    2: { hora_inicio: '08:55', hora_fim: '09:45' },
+    3: { hora_inicio: '09:55', hora_fim: '10:45' },
+    4: { hora_inicio: '10:50', hora_fim: '11:40' },
   },
   vespertino: {
     1: { hora_inicio: '13:00', hora_fim: '13:50' },
     2: { hora_inicio: '13:55', hora_fim: '14:45' },
-    3: { hora_inicio: '15:00', hora_fim: '15:50' },
-    4: { hora_inicio: '15:55', hora_fim: '16:45' },
+    3: { hora_inicio: '14:55', hora_fim: '15:45' },
+    4: { hora_inicio: '15:50', hora_fim: '16:40' },
   },
   noturno: {
     1: { hora_inicio: '19:00', hora_fim: '19:50' },
     2: { hora_inicio: '19:55', hora_fim: '20:45' },
-    3: { hora_inicio: '21:00', hora_fim: '21:50' },
-    4: { hora_inicio: '21:55', hora_fim: '22:45' },
+    3: { hora_inicio: '20:55', hora_fim: '21:45' },
+    4: { hora_inicio: '21:50', hora_fim: '22:40' },
   },
 };
 
@@ -46,20 +46,20 @@ const HORARIOS = {
  *           application/json:
  *             example:
  *               matutino:
- *                 1: { hora_inicio: "07:00", hora_fim: "07:50" }
- *                 2: { hora_inicio: "07:55", hora_fim: "08:45" }
- *                 3: { hora_inicio: "09:00", hora_fim: "09:50" }
- *                 4: { hora_inicio: "09:55", hora_fim: "10:45" }
+ *                 1: { hora_inicio: "08:00", hora_fim: "08:50" }
+ *                 2: { hora_inicio: "08:55", hora_fim: "09:45" }
+ *                 3: { hora_inicio: "09:55", hora_fim: "10:45" }
+ *                 4: { hora_inicio: "10:50", hora_fim: "11:40" }
  *               vespertino:
  *                 1: { hora_inicio: "13:00", hora_fim: "13:50" }
  *                 2: { hora_inicio: "13:55", hora_fim: "14:45" }
- *                 3: { hora_inicio: "15:00", hora_fim: "15:50" }
- *                 4: { hora_inicio: "15:55", hora_fim: "16:45" }
+ *                 3: { hora_inicio: "14:55", hora_fim: "15:45" }
+ *                 4: { hora_inicio: "15:50", hora_fim: "16:40" }
  *               noturno:
  *                 1: { hora_inicio: "19:00", hora_fim: "19:50" }
  *                 2: { hora_inicio: "19:55", hora_fim: "20:45" }
- *                 3: { hora_inicio: "21:00", hora_fim: "21:50" }
- *                 4: { hora_inicio: "21:55", hora_fim: "22:45" }
+ *                 3: { hora_inicio: "20:55", hora_fim: "21:45" }
+ *                 4: { hora_inicio: "21:50", hora_fim: "22:40" }
  */
 router.get('/horarios', (req, res) => {
   res.json(HORARIOS);
