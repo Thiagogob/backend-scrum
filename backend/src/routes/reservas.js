@@ -285,7 +285,7 @@ router.get('/:id', async (req, res) => {
  *             data: "2026-04-10"
  *             turno: "matutino"
  *             aula_numero: 1
- *             motivo: "Aula de Algoritmos"
+ *             disciplina: "Aula de Algoritmos"
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -303,7 +303,7 @@ router.get('/:id', async (req, res) => {
  *         description: Erro interno
  */
 router.post('/', authMiddleware, async (req, res) => {
-  const { sala_id, usuario_id, criado_por, data, turno, aula_numero, motivo } = req.body;
+  const { sala_id, usuario_id, criado_por, data, turno, aula_numero, disciplina } = req.body;
 
   if (!sala_id || !usuario_id || !data || !turno || !aula_numero) {
     return res.status(400).json({ error: 'Campos obrigatórios: sala_id, usuario_id, data, turno, aula_numero' });
@@ -362,10 +362,10 @@ router.post('/', authMiddleware, async (req, res) => {
     const criador = criado_por || usuario_id;
 
     const { rows } = await pool.query(
-      `INSERT INTO reserva (sala_id, usuario_id, criado_por, data, turno, aula_numero, hora_inicio, hora_fim, motivo, status)
+      `INSERT INTO reserva (sala_id, usuario_id, criado_por, data, turno, aula_numero, hora_inicio, hora_fim, disciplina, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'ativa')
        RETURNING *`,
-      [sala_id, usuario_id, criador, data, turno, aulaNum, hora_inicio, hora_fim, motivo || null]
+      [sala_id, usuario_id, criador, data, turno, aulaNum, hora_inicio, hora_fim, disciplina || null]
     );
     res.status(201).json(rows[0]);
   } catch (err) {

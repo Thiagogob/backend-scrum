@@ -106,7 +106,7 @@ const options = {
             hora_inicio: { type: 'string', example: '07:00' },
             hora_fim: { type: 'string', example: '07:50' },
             status: { type: 'string', enum: ['ativa', 'cancelada', 'concluida'], example: 'ativa' },
-            motivo: { type: 'string', nullable: true, example: 'Aula de Algoritmos' },
+            disciplina: { type: 'string', nullable: true, example: 'Aula de Algoritmos' },
             criado_em: { type: 'string', format: 'date-time', readOnly: true },
             cancelado_em: { type: 'string', format: 'date-time', nullable: true, readOnly: true },
             cancelado_por: { type: 'string', format: 'uuid', nullable: true },
@@ -122,7 +122,7 @@ const options = {
             data: { type: 'string', format: 'date', example: '2026-04-10' },
             turno: { type: 'string', enum: ['matutino', 'vespertino', 'noturno'] },
             aula_numero: { type: 'integer', minimum: 1, maximum: 4, example: 1 },
-            motivo: { type: 'string', nullable: true },
+            disciplina: { type: 'string', nullable: true },
           },
         },
         Error: {
