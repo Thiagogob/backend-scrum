@@ -1,4 +1,5 @@
 const { Router } = require('express');
+const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 const supabase = require('../config/supabase');
 
@@ -72,10 +73,19 @@ router.post('/login', async (req, res) => {
     [data.user.id]
   );
 
-  res.json({
-    token: data.session.access_token,
-    usuario: rows[0],
-  });
+  if (rows.length === 0) {
+    return res.status(401).json({ error: 'Usuário não encontrado na base de dados' });
+  }
+
+  const usuario = rows[0];
+
+  const token = jwt.sign(
+    { id: usuario.id, email: usuario.email, tipo: usuario.tipo },
+    process.env.JWT_SECRET,
+    { expiresIn: '8h' }
+  );
+
+  res.json({ token, usuario });
 });
 
 module.exports = router;

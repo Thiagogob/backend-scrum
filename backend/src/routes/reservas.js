@@ -1,5 +1,6 @@
 const { Router } = require('express');
 const pool = require('../config/db');
+const authMiddleware = require('../middlewares/authMiddleware');
 
 const router = Router();
 
@@ -265,7 +266,7 @@ router.get('/:id', async (req, res) => {
  *       500:
  *         description: Erro interno
  */
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
   const { sala_id, usuario_id, criado_por, data, turno, aula_numero, motivo } = req.body;
 
   if (!sala_id || !usuario_id || !data || !turno || !aula_numero) {
@@ -374,7 +375,7 @@ router.post('/', async (req, res) => {
  *       500:
  *         description: Erro interno
  */
-router.patch('/:id/cancelar', async (req, res) => {
+router.patch('/:id/cancelar', authMiddleware, async (req, res) => {
   const { id } = req.params;
   const { cancelado_por } = req.body;
 
