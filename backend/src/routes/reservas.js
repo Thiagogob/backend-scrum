@@ -35,6 +35,38 @@ const HORARIOS = {
 
 /**
  * @swagger
+ * /api/reservas/horarios:
+ *   get:
+ *     summary: Retorna os horários disponíveis por turno e número de aula
+ *     tags: [Reservas]
+ *     responses:
+ *       200:
+ *         description: Mapa de turnos com horários de cada aula
+ *         content:
+ *           application/json:
+ *             example:
+ *               matutino:
+ *                 1: { hora_inicio: "07:00", hora_fim: "07:50" }
+ *                 2: { hora_inicio: "07:55", hora_fim: "08:45" }
+ *                 3: { hora_inicio: "09:00", hora_fim: "09:50" }
+ *                 4: { hora_inicio: "09:55", hora_fim: "10:45" }
+ *               vespertino:
+ *                 1: { hora_inicio: "13:00", hora_fim: "13:50" }
+ *                 2: { hora_inicio: "13:55", hora_fim: "14:45" }
+ *                 3: { hora_inicio: "15:00", hora_fim: "15:50" }
+ *                 4: { hora_inicio: "15:55", hora_fim: "16:45" }
+ *               noturno:
+ *                 1: { hora_inicio: "19:00", hora_fim: "19:50" }
+ *                 2: { hora_inicio: "19:55", hora_fim: "20:45" }
+ *                 3: { hora_inicio: "21:00", hora_fim: "21:50" }
+ *                 4: { hora_inicio: "21:55", hora_fim: "22:45" }
+ */
+router.get('/horarios', (req, res) => {
+  res.json(HORARIOS);
+});
+
+/**
+ * @swagger
  * /api/reservas/disponibilidade:
  *   get:
  *     summary: Consulta salas disponíveis para uma data e turno
