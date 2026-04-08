@@ -150,7 +150,7 @@ router.post('/login', async (req, res) => {
  *                   example: "Logout realizado com sucesso"
  */
 router.post('/logout', (req, res) => {
-  res.clearCookie('token', COOKIE_OPTIONS);
+  res.clearCookie('token', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
   res.json({ message: 'Logout realizado com sucesso' });
 });
 
