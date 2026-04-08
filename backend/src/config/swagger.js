@@ -190,6 +190,12 @@ Use **GET /api/reservas/horarios** para buscar essa tabela dinamicamente no fron
               example: 'Projetor multimídia HDMI/VGA',
               description: 'Descrição opcional com mais detalhes sobre o equipamento.',
             },
+            sistema_operacional: {
+              type: 'string',
+              nullable: true,
+              enum: ['Linux', 'macOS', 'Windows'],
+              description: 'Sistema operacional instalado. Preencher apenas quando o equipamento for um computador. Para outros tipos de equipamento, omitir ou enviar null.',
+            },
           },
           required: ['nome'],
         },

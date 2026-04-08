@@ -115,8 +115,9 @@ router.get('/:id', async (req, res) => {
  *           schema:
  *             $ref: '#/components/schemas/Equipamento'
  *           example:
- *             nome: "Lousa Digital"
- *             descricao: "Lousa interativa com caneta óptica"
+ *             nome: "Computador"
+ *             descricao: "Computador Dell i5 16GB RAM"
+ *             sistema_operacional: "Linux"
  *     responses:
  *       201:
  *         description: Equipamento criado com sucesso
@@ -124,8 +125,8 @@ router.get('/:id', async (req, res) => {
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Equipamento'
- *       400:
- *         description: Nome não informado ou já existe um equipamento com esse nome
+ * *       400:
+ *         description: Nome não informado, já existe um equipamento com esse nome, ou sistema_operacional inválido
  *         content:
  *           application/json:
  *             schema:
@@ -139,18 +140,27 @@ router.get('/:id', async (req, res) => {
  *                 summary: Nome já cadastrado
  *                 value:
  *                   error: "Já existe um equipamento com esse nome"
+ *               so_invalido:
+ *                 summary: Sistema operacional inválido
+ *                 value:
+ *                   error: "sistema_operacional deve ser \"Linux\", \"macOS\" ou \"Windows\""
  *       500:
  *         description: Erro interno do servidor
  */
 router.post('/', async (req, res) => {
-  const { nome, descricao } = req.body;
+  const { nome, descricao, sistema_operacional } = req.body;
 
   if (!nome) return res.status(400).json({ error: 'Campo obrigatório: nome' });
 
+  if (sistema_operacional !== undefined && sistema_operacional !== null &&
+      !['Linux', 'macOS', 'Windows'].includes(sistema_operacional)) {
+    return res.status(400).json({ error: 'sistema_operacional deve ser "Linux", "macOS" ou "Windows"' });
+  }
+
   try {
     const { rows } = await pool.query(
-      'INSERT INTO equipamento (nome, descricao) VALUES ($1, $2) RETURNING *',
-      [nome, descricao || null]
+      'INSERT INTO equipamento (nome, descricao, sistema_operacional) VALUES ($1, $2, $3) RETURNING *',
+      [nome, descricao || null, sistema_operacional || null]
     );
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -188,6 +198,7 @@ router.post('/', async (req, res) => {
  *           example:
  *             nome: "Projetor Full HD"
  *             descricao: "Projetor multimídia HDMI/VGA 1080p"
+ *             sistema_operacional: null
  *     responses:
  *       200:
  *         description: Equipamento atualizado com sucesso
@@ -216,13 +227,19 @@ router.post('/', async (req, res) => {
  */
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { nome, descricao } = req.body;
+  const { nome, descricao, sistema_operacional } = req.body;
+
+  if (sistema_operacional !== undefined && sistema_operacional !== null &&
+      !['Linux', 'macOS', 'Windows'].includes(sistema_operacional)) {
+    return res.status(400).json({ error: 'sistema_operacional deve ser "Linux", "macOS" ou "Windows"' });
+  }
 
   const fields = [];
   const values = [];
 
   if (nome !== undefined) { values.push(nome); fields.push(`nome = $${values.length}`); }
   if (descricao !== undefined) { values.push(descricao); fields.push(`descricao = $${values.length}`); }
+  if (sistema_operacional !== undefined) { values.push(sistema_operacional); fields.push(`sistema_operacional = $${values.length}`); }
 
   if (fields.length === 0) return res.status(400).json({ error: 'Nenhum campo fornecido para atualização' });
 
