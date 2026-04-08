@@ -2,6 +2,7 @@ const { Router } = require('express');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 const supabase = require('../config/supabase');
+const authMiddleware = require('../middlewares/authMiddleware');
 
 const router = Router();
 
@@ -126,6 +127,57 @@ router.post('/login', async (req, res) => {
 
   res.cookie('token', token, COOKIE_OPTIONS);
   res.json({ token, usuario });
+});
+
+/**
+ * @swagger
+ * /api/auth/user:
+ *   get:
+ *     summary: Retorna os dados do usuário autenticado
+ *     tags: [Auth]
+ *     description: |
+ *       Retorna os dados do usuário da sessão atual com base no cookie ou token JWT.
+ *
+ *       Use esta rota ao carregar a aplicação para verificar se o usuário já está logado
+ *       e obter seus dados sem precisar fazer login novamente.
+ *
+ *       **Fluxo típico no frontend:**
+ *       1. Ao iniciar a aplicação, chame este endpoint
+ *       2. Se retornar 200, o usuário está logado — use os dados retornados
+ *       3. Se retornar 401, o cookie expirou ou não existe — redirecione para o login
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Usuário autenticado. Retorna os dados completos do usuário.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Usuario'
+ *       401:
+ *         description: Não autenticado. Cookie ausente, expirado ou token inválido.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Token de autenticação não fornecido"
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.get('/user', authMiddleware, async (req, res) => {
+  try {
+    const { rows, rowCount } = await pool.query(
+      'SELECT id, nome, email, tipo, ativo, criado_em FROM usuario WHERE id = $1',
+      [req.usuario.id]
+    );
+    if (rowCount === 0) {
+      return res.status(401).json({ error: 'Usuário não encontrado' });
+    }
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /**
