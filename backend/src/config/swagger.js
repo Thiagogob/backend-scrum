@@ -16,19 +16,35 @@ Permite cadastrar salas, equipamentos e usuários, além de criar e gerenciar re
 
 ## Como se autenticar
 
-Algumas rotas exigem autenticação (indicadas com o ícone de cadeado 🔒). Para usá-las:
+### No frontend (cookie automático)
 
-1. Faça login em **POST /api/auth/login** com seu email e senha
-2. Copie o valor do campo **token** da resposta
-3. Clique no botão **Authorize** (🔓) no topo desta página
-4. Cole o token no campo **Value** e clique em **Authorize**
+O sistema usa **cookies httpOnly** para autenticação. O fluxo é simples:
 
-A partir daí, o Swagger enviará automaticamente o header \`Authorization: Bearer <token>\` em todas as requisições protegidas.
+1. Faça uma requisição **POST /api/auth/login** com email e senha
+2. O backend define automaticamente um cookie chamado \`token\` no browser
+3. A partir daí, o browser envia o cookie em todas as requisições ao backend automaticamente — **nenhum código extra é necessário**
+4. Para encerrar a sessão, chame **POST /api/auth/logout** — o cookie é removido
 
-No frontend, armazene o token (ex.: \`localStorage.setItem('token', data.token)\`) e envie-o manualmente:
-\`\`\`
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-\`\`\`
+O cookie é **httpOnly** (não acessível via JavaScript) e **SameSite=Lax** (proteção contra CSRF).
+Expira em **8 horas**, igual ao JWT.
+
+> **Atenção para o CORS:** o frontend precisa fazer as requisições com \`credentials: true\` (ou \`withCredentials: true\` no Axios/fetch), caso contrário o browser não enviará o cookie.
+>
+> Exemplo com fetch:
+> \`{ method: 'POST', credentials: 'include', body: ... }\`
+>
+> Exemplo com Axios:
+> \`axios.defaults.withCredentials = true\`
+
+---
+
+### No Swagger UI (Bearer token manual)
+
+O Swagger UI não gerencia cookies automaticamente, então para testar rotas protegidas aqui:
+
+1. Execute **POST /api/auth/login** — o campo \`token\` virá na resposta
+2. Clique no botão **Authorize** (🔓) no topo desta página
+3. Cole o token no campo **Value** e clique em **Authorize**
 
 O token expira em **8 horas**.
 

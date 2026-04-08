@@ -5,6 +5,13 @@ const supabase = require('../config/supabase');
 
 const router = Router();
 
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax',
+  maxAge: 8 * 60 * 60 * 1000, // 8 horas em ms
+};
+
 /**
  * @swagger
  * tags:
@@ -16,17 +23,18 @@ const router = Router();
  * @swagger
  * /api/auth/login:
  *   post:
- *     summary: Autentica um usuário e retorna o token JWT
+ *     summary: Autentica um usuário e define o cookie de sessão
  *     tags: [Auth]
  *     description: |
- *       Realiza o login do usuário com email e senha. Em caso de sucesso, retorna um **token JWT** válido por 8 horas e os dados básicos do usuário autenticado.
+ *       Realiza o login com email e senha. Em caso de sucesso:
+ *       - Define um cookie **httpOnly** chamado `token` com o JWT (válido por 8 horas)
+ *       - Retorna os dados do usuário no corpo da resposta
  *
- *       **Como usar o token recebido:**
- *       - Armazene o token no frontend (ex.: localStorage.setItem('token', data.token))
- *       - Envie-o em todas as requisições protegidas via header HTTP com o formato: Authorization Bearer seu-token-aqui
- *       - No Swagger UI: clique em Authorize (cadeado) no topo da página, cole o token e confirme.
+ *       O cookie é enviado automaticamente pelo browser em todas as requisições seguintes ao backend.
+ *       O frontend **não precisa** ler ou armazenar o token manualmente.
  *
- *       **O token expira em 8 horas.** Após isso, o usuário precisa fazer login novamente.
+ *       **Para testar no Swagger UI:** após o login, copie o campo `token` da resposta,
+ *       clique em Authorize (cadeado) e cole o token para autenticar as rotas protegidas.
  *     requestBody:
  *       required: true
  *       content:
@@ -46,7 +54,13 @@ const router = Router();
  *                 example: "senha123"
  *     responses:
  *       200:
- *         description: Login realizado com sucesso
+ *         description: Login realizado com sucesso. Cookie "token" definido automaticamente.
+ *         headers:
+ *           Set-Cookie:
+ *             description: Cookie httpOnly com o JWT. Gerenciado automaticamente pelo browser.
+ *             schema:
+ *               type: string
+ *               example: token=eyJhbGci...; Path=/; HttpOnly; SameSite=Lax
  *         content:
  *           application/json:
  *             schema:
@@ -54,7 +68,7 @@ const router = Router();
  *               properties:
  *                 token:
  *                   type: string
- *                   description: Token JWT para ser usado nas requisições protegidas
+ *                   description: JWT também retornado no corpo para uso no Swagger UI
  *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
  *                 usuario:
  *                   $ref: '#/components/schemas/Usuario'
@@ -110,7 +124,34 @@ router.post('/login', async (req, res) => {
     { expiresIn: '8h' }
   );
 
+  res.cookie('token', token, COOKIE_OPTIONS);
   res.json({ token, usuario });
+});
+
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     summary: Encerra a sessão do usuário limpando o cookie
+ *     tags: [Auth]
+ *     description: |
+ *       Remove o cookie de autenticação do browser, encerrando a sessão.
+ *       Após o logout, requisições a rotas protegidas retornarão 401.
+ *     responses:
+ *       200:
+ *         description: Logout realizado com sucesso. Cookie removido.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Logout realizado com sucesso"
+ */
+router.post('/logout', (req, res) => {
+  res.clearCookie('token', COOKIE_OPTIONS);
+  res.json({ message: 'Logout realizado com sucesso' });
 });
 
 module.exports = router;
