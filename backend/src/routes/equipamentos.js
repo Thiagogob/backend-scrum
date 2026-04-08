@@ -125,7 +125,7 @@ router.get('/:id', async (req, res) => {
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Equipamento'
- * *       400:
+ *       400:
  *         description: Nome não informado, já existe um equipamento com esse nome, ou sistema_operacional inválido
  *         content:
  *           application/json:

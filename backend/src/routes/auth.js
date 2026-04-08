@@ -22,12 +22,9 @@ const router = Router();
  *       Realiza o login do usuário com email e senha. Em caso de sucesso, retorna um **token JWT** válido por 8 horas e os dados básicos do usuário autenticado.
  *
  *       **Como usar o token recebido:**
- *       - Armazene o token no frontend (ex.: `localStorage.setItem('token', data.token)`)
- *       - Envie-o em todas as requisições protegidas via header HTTP:
- *         ```
- *         Authorization: Bearer <token>
- *         ```
- *       - No Swagger UI: clique em **Authorize** (🔓) no topo da página, cole o token e confirme.
+ *       - Armazene o token no frontend (ex.: localStorage.setItem('token', data.token))
+ *       - Envie-o em todas as requisições protegidas via header HTTP com o formato: Authorization Bearer seu-token-aqui
+ *       - No Swagger UI: clique em Authorize (cadeado) no topo da página, cole o token e confirme.
  *
  *       **O token expira em 8 horas.** Após isso, o usuário precisa fazer login novamente.
  *     requestBody:
