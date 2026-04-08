@@ -132,6 +132,7 @@ router.get('/:id', async (req, res) => {
  *       Cria um novo usuário no sistema. O usuário é registrado tanto no sistema de autenticação quanto na base de dados.
  *
  *       **Regras:**
+ *       - O email deve ser institucional: apenas `@uniuv.edu.br` ou `@unespar.edu.br` são aceitos
  *       - O email deve ser único — não é possível cadastrar dois usuários com o mesmo email
  *       - A senha deve ter no mínimo 6 caracteres
  *       - O `tipo` define as permissões do usuário no sistema de reservas
@@ -147,7 +148,7 @@ router.get('/:id', async (req, res) => {
  *             $ref: '#/components/schemas/Usuario'
  *           example:
  *             nome: "Prof. Teste Silva"
- *             email: "teste.silva@universidade.edu.br"
+ *             email: "teste.silva@uniuv.edu.br"
  *             senha: "senha123"
  *             tipo: "professor"
  *     responses:
@@ -168,6 +169,10 @@ router.get('/:id', async (req, res) => {
  *                 summary: Campos obrigatórios ausentes
  *                 value:
  *                   error: "Campos obrigatórios: nome, email, senha, tipo"
+ *               email_dominio_invalido:
+ *                 summary: E-mail fora do domínio institucional
+ *                 value:
+ *                   error: "E-mail deve ser institucional (@uniuv.edu.br ou @unespar.edu.br)"
  *               email_duplicado:
  *                 summary: E-mail já em uso
  *                 value:
@@ -192,9 +197,9 @@ router.post('/', async (req, res) => {
   if (!['professor', 'admin_cpd'].includes(tipo)) {
     return res.status(400).json({ error: 'tipo deve ser "professor" ou "admin_cpd"' });
   }
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return res.status(400).json({ error: 'E-mail inválido' });
+  const dominiosPermitidos = ['@uniuv.edu.br', '@unespar.edu.br'];
+  if (!dominiosPermitidos.some(d => email.endsWith(d))) {
+    return res.status(400).json({ error: 'E-mail deve ser institucional (@uniuv.edu.br ou @unespar.edu.br)' });
   }
   if (senha.length < 6) {
     return res.status(400).json({ error: 'senha deve ter no mínimo 6 caracteres' });

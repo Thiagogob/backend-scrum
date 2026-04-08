@@ -155,8 +155,8 @@ Use **GET /api/reservas/horarios** para buscar essa tabela dinamicamente no fron
             email: {
               type: 'string',
               format: 'email',
-              example: 'joao.silva@universidade.edu.br',
-              description: 'E-mail institucional do usuário. Deve ser único no sistema.',
+              example: 'joao.silva@uniuv.edu.br',
+              description: 'E-mail institucional do usuário. Apenas @uniuv.edu.br e @unespar.edu.br são aceitos. Deve ser único no sistema.',
             },
             senha: {
               type: 'string',
