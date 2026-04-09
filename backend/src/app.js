@@ -16,6 +16,7 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null,
   'http://localhost:3000',
+  'http://localhost:3003',
 ].filter(Boolean);
 
 app.use(cors({
