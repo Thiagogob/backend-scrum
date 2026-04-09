@@ -509,6 +509,190 @@ router.post('/', authMiddleware, async (req, res) => {
 
 /**
  * @swagger
+ * /api/reservas/{id}:
+ *   patch:
+ *     summary: Edita uma reserva ativa
+ *     tags: [Reservas]
+ *     description: |
+ *       Atualiza os dados de uma reserva com status `ativa`. **Requer autenticação.**
+ *
+ *       Todos os campos são opcionais — envie apenas o que deseja alterar.
+ *       Se `turno` ou `aula_numero` forem alterados, `hora_inicio` e `hora_fim` são recalculados automaticamente.
+ *
+ *       **Regras de negócio aplicadas:**
+ *       - ❌ Datas passadas não são permitidas
+ *       - ❌ Professores só podem reservar dentro do mês corrente
+ *       - ❌ Conflito de horário com outra reserva ativa na mesma sala (exceto a própria)
+ *       - ❌ Salas inativas não podem ser reservadas
+ *       - ❌ Só é possível editar reservas com status `ativa`
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID da reserva a ser editada
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               sala_id:
+ *                 type: string
+ *                 format: uuid
+ *               data:
+ *                 type: string
+ *                 format: date
+ *               turno:
+ *                 type: string
+ *                 enum: [matutino, vespertino, noturno]
+ *               aula_numero:
+ *                 type: integer
+ *                 minimum: 1
+ *                 maximum: 4
+ *               disciplina:
+ *                 type: string
+ *           example:
+ *             sala_id: "uuid-da-nova-sala"
+ *             data: "2026-04-15"
+ *             turno: "vespertino"
+ *             aula_numero: 2
+ *             disciplina: "Algoritmos"
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Reserva atualizada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Reserva'
+ *       400:
+ *         description: Dados inválidos ou regra de negócio violada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             examples:
+ *               nao_ativa:
+ *                 summary: Reserva não está ativa
+ *                 value:
+ *                   error: "Apenas reservas ativas podem ser editadas"
+ *               data_passada:
+ *                 summary: Data no passado
+ *                 value:
+ *                   error: "Não é permitido fazer reservas em datas passadas"
+ *               mes_diferente:
+ *                 summary: Professor fora do mês corrente
+ *                 value:
+ *                   error: "Professores só podem reservar salas dentro do mês corrente"
+ *               conflito:
+ *                 summary: Conflito de horário
+ *                 value:
+ *                   error: "Sala já reservada nesse horário"
+ *               sala_inativa:
+ *                 summary: Sala inativa
+ *                 value:
+ *                   error: "Sala inativa"
+ *       401:
+ *         description: Token JWT não enviado ou inválido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Token de autenticação não fornecido"
+ *       404:
+ *         description: Reserva não encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Reserva não encontrada"
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.patch('/:id', authMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const { sala_id, data, turno, aula_numero, disciplina } = req.body;
+
+  if (turno && !['matutino', 'vespertino', 'noturno'].includes(turno)) {
+    return res.status(400).json({ error: 'turno deve ser "matutino", "vespertino" ou "noturno"' });
+  }
+  const aulaNum = aula_numero !== undefined ? Number(aula_numero) : undefined;
+  if (aulaNum !== undefined && ![1, 2, 3, 4].includes(aulaNum)) {
+    return res.status(400).json({ error: 'aula_numero deve ser 1, 2, 3 ou 4' });
+  }
+
+  try {
+    const reservaResult = await pool.query('SELECT * FROM reserva WHERE id = $1', [id]);
+    if (reservaResult.rowCount === 0) return res.status(404).json({ error: 'Reserva não encontrada' });
+
+    const reserva = reservaResult.rows[0];
+    if (reserva.status !== 'ativa') {
+      return res.status(400).json({ error: 'Apenas reservas ativas podem ser editadas' });
+    }
+
+    // Merge: use new values if provided, otherwise keep existing
+    const novaData = data || reserva.data;
+    const novoTurno = turno || reserva.turno;
+    const novaAula = aulaNum !== undefined ? aulaNum : reserva.aula_numero;
+    const novaSalaId = sala_id || reserva.sala_id;
+
+    // Validação: não permitir datas passadas
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const dataReserva = new Date(novaData + 'T00:00:00');
+    if (dataReserva < hoje) {
+      return res.status(400).json({ error: 'Não é permitido fazer reservas em datas passadas' });
+    }
+
+    // Validação: professor só pode reservar no mês corrente
+    const usuarioResult = await pool.query('SELECT tipo FROM usuario WHERE id = $1', [reserva.usuario_id]);
+    if (usuarioResult.rows[0].tipo === 'professor') {
+      const agora = new Date();
+      if (dataReserva.getFullYear() !== agora.getFullYear() || dataReserva.getMonth() !== agora.getMonth()) {
+        return res.status(400).json({ error: 'Professores só podem reservar salas dentro do mês corrente' });
+      }
+    }
+
+    // Verificar se a sala existe e está ativa
+    const salaResult = await pool.query('SELECT ativo FROM sala WHERE id = $1', [novaSalaId]);
+    if (salaResult.rowCount === 0) return res.status(400).json({ error: 'Sala não encontrada' });
+    if (!salaResult.rows[0].ativo) return res.status(400).json({ error: 'Sala inativa' });
+
+    // Verificar conflito (excluindo a própria reserva)
+    const conflito = await pool.query(
+      `SELECT id FROM reserva
+       WHERE sala_id = $1 AND data = $2 AND turno = $3 AND aula_numero = $4 AND status = 'ativa' AND id != $5`,
+      [novaSalaId, novaData, novoTurno, novaAula, id]
+    );
+    if (conflito.rowCount > 0) {
+      return res.status(400).json({ error: 'Sala já reservada nesse horário' });
+    }
+
+    const { hora_inicio, hora_fim } = HORARIOS[novoTurno][novaAula];
+    const novaDisciplina = disciplina !== undefined ? disciplina : reserva.disciplina;
+
+    const { rows } = await pool.query(
+      `UPDATE reserva
+       SET sala_id = $1, data = $2, turno = $3, aula_numero = $4, hora_inicio = $5, hora_fim = $6, disciplina = $7
+       WHERE id = $8
+       RETURNING *`,
+      [novaSalaId, novaData, novoTurno, novaAula, hora_inicio, hora_fim, novaDisciplina, id]
+    );
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * @swagger
  * /api/reservas/{id}/cancelar:
  *   patch:
  *     summary: Cancela uma reserva ativa
