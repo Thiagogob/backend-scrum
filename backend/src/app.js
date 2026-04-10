@@ -3,12 +3,33 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
+const pool = require('./config/db');
 
 const salasRouter = require('./routes/salas');
 const usuariosRouter = require('./routes/usuarios');
 const equipamentosRouter = require('./routes/equipamentos');
 const authRouter = require('./routes/auth');
 const reservasRouter = require('./routes/reservas');
+
+async function concluirReservasExpiradas() {
+  try {
+    await pool.query(
+      `UPDATE reserva
+       SET status = 'concluida'
+       WHERE status = 'ativa'
+         AND (
+           data < CURRENT_DATE
+           OR (data = CURRENT_DATE AND hora_fim < CURRENT_TIME)
+         )`
+    );
+  } catch (err) {
+    console.error('Erro ao concluir reservas expiradas:', err.message);
+  }
+}
+
+// Executa ao iniciar e a cada 5 minutos
+concluirReservasExpiradas();
+setInterval(concluirReservasExpiradas, 5 * 60 * 1000);
 
 const app = express();
 
