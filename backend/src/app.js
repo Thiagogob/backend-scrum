@@ -27,7 +27,21 @@ async function concluirReservasExpiradas() {
   }
 }
 
+async function garantirConstraints() {
+  try {
+    // Impede dupla reserva do mesmo slot mesmo sob concorrência
+    await pool.query(
+      `CREATE UNIQUE INDEX IF NOT EXISTS reserva_slot_unico
+       ON reserva (sala_id, data, turno, aula_numero)
+       WHERE status = 'ativa'`
+    );
+  } catch (err) {
+    console.error('Erro ao criar índice de constraint:', err.message);
+  }
+}
+
 // Executa ao iniciar e a cada 5 minutos
+garantirConstraints();
 concluirReservasExpiradas();
 setInterval(concluirReservasExpiradas, 5 * 60 * 1000);
 

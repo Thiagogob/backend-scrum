@@ -503,6 +503,9 @@ router.post('/', authMiddleware, async (req, res) => {
     );
     res.status(201).json(rows[0]);
   } catch (err) {
+    if (err.code === '23505') {
+      return res.status(400).json({ error: 'Sala já reservada nesse horário' });
+    }
     res.status(500).json({ error: err.message });
   }
 });
@@ -517,7 +520,10 @@ router.post('/', authMiddleware, async (req, res) => {
  *       Atualiza os dados de uma reserva com status `ativa`. **Requer autenticação.**
  *
  *       Todos os campos são opcionais — envie apenas o que deseja alterar.
- *       Se `turno` ou `aula_numero` forem alterados, `hora_inicio` e `hora_fim` são recalculados automaticamente.
+ *
+ *       > ⚠️ **`hora_inicio` e `hora_fim` não são campos de entrada.** Para alterar o horário da reserva,
+ *       > envie `turno` e/ou `aula_numero`. O backend recalcula `hora_inicio` e `hora_fim` automaticamente
+ *       > e os retorna na resposta. Consulte `GET /api/reservas/horarios` para ver a tabela de horários.
  *
  *       **Regras de negócio aplicadas:**
  *       - ❌ Datas passadas não são permitidas
@@ -565,11 +571,26 @@ router.post('/', authMiddleware, async (req, res) => {
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Reserva atualizada com sucesso
+ *         description: Reserva atualizada com sucesso. `hora_inicio` e `hora_fim` são calculados automaticamente pelo backend com base em `turno` e `aula_numero`.
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Reserva'
+ *             example:
+ *               id: "uuid-da-reserva"
+ *               sala_id: "uuid-da-nova-sala"
+ *               usuario_id: "uuid-do-professor"
+ *               criado_por: "uuid-do-professor"
+ *               data: "2026-04-15"
+ *               turno: "vespertino"
+ *               aula_numero: 2
+ *               hora_inicio: "13:55"
+ *               hora_fim: "14:45"
+ *               status: "ativa"
+ *               disciplina: "Algoritmos"
+ *               criado_em: "2026-04-10T10:00:00.000Z"
+ *               cancelado_em: null
+ *               cancelado_por: null
  *       400:
  *         description: Dados inválidos ou regra de negócio violada
  *         content:
@@ -687,6 +708,9 @@ router.patch('/:id', authMiddleware, async (req, res) => {
     );
     res.json(rows[0]);
   } catch (err) {
+    if (err.code === '23505') {
+      return res.status(400).json({ error: 'Sala já reservada nesse horário' });
+    }
     res.status(500).json({ error: err.message });
   }
 });
