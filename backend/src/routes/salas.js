@@ -204,6 +204,14 @@ router.post('/', async (req, res) => {
   }
 
   try {
+    const duplicada = await pool.query(
+      'SELECT id FROM sala WHERE nome_numero = $1 AND bloco = $2',
+      [nome_numero, bloco]
+    );
+    if (duplicada.rowCount > 0) {
+      return res.status(409).json({ error: 'Já existe uma sala com esse nome/número neste bloco' });
+    }
+
     const { rows } = await pool.query(
       `INSERT INTO sala (nome_numero, bloco, capacidade, tipo_sala)
        VALUES ($1, $2, $3, $4)

@@ -307,23 +307,48 @@ router.post('/', async (req, res) => {
  */
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { nome, tipo, ativo } = req.body;
+  const { nome, email, tipo, ativo } = req.body;
 
   if (tipo !== undefined && !['professor', 'admin_cpd'].includes(tipo)) {
     return res.status(400).json({ error: 'tipo deve ser "professor" ou "admin_cpd"' });
+  }
+  if (email !== undefined) {
+    const dominiosPermitidos = ['@uniuv.edu.br', '@unespar.edu.br'];
+    if (!dominiosPermitidos.some(d => email.endsWith(d))) {
+      return res.status(400).json({ error: 'E-mail deve ser institucional (@uniuv.edu.br ou @unespar.edu.br)' });
+    }
   }
 
   const fields = [];
   const values = [];
 
   if (nome !== undefined) { values.push(nome); fields.push(`nome = $${values.length}`); }
+  if (email !== undefined) { values.push(email); fields.push(`email = $${values.length}`); }
   if (tipo !== undefined) { values.push(tipo); fields.push(`tipo = $${values.length}`); }
   if (ativo !== undefined) { values.push(ativo); fields.push(`ativo = $${values.length}`); }
 
   if (fields.length === 0) return res.status(400).json({ error: 'Nenhum campo fornecido para atualização' });
 
-  values.push(id);
   try {
+    // Se o email está sendo alterado, precisamos buscar o auth_id e atualizar no Supabase
+    if (email !== undefined) {
+      const authIdResult = await pool.query('SELECT auth_id FROM usuario WHERE id = $1', [id]);
+      if (authIdResult.rowCount === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
+
+      const { error: supabaseError } = await supabase.auth.admin.updateUserById(
+        authIdResult.rows[0].auth_id,
+        { email }
+      );
+      if (supabaseError) {
+        if (supabaseError.message.toLowerCase().includes('already registered') ||
+            supabaseError.message.toLowerCase().includes('already been registered')) {
+          return res.status(400).json({ error: 'E-mail já cadastrado' });
+        }
+        return res.status(500).json({ error: supabaseError.message });
+      }
+    }
+
+    values.push(id);
     const { rows, rowCount } = await pool.query(
       `UPDATE usuario SET ${fields.join(', ')} WHERE id = $${values.length} RETURNING id, nome, email, tipo, ativo, criado_em`,
       values

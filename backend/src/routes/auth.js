@@ -6,10 +6,12 @@ const authMiddleware = require('../middlewares/authMiddleware');
 
 const router = Router();
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: true,
-  sameSite: 'none',
+  secure: isProduction,
+  sameSite: isProduction ? 'none' : 'lax',
   maxAge: 8 * 60 * 60 * 1000, // 8 horas em ms
 };
 
@@ -202,7 +204,7 @@ router.get('/user', authMiddleware, async (req, res) => {
  *                   example: "Logout realizado com sucesso"
  */
 router.post('/logout', (req, res) => {
-  res.clearCookie('token', { httpOnly: true, secure: true, sameSite: 'none' });
+  res.clearCookie('token', { httpOnly: true, secure: isProduction, sameSite: isProduction ? 'none' : 'lax' });
   res.json({ message: 'Logout realizado com sucesso' });
 });
 

@@ -637,7 +637,7 @@ router.post('/', authMiddleware, async (req, res) => {
  *       500:
  *         description: Erro interno do servidor
  */
-router.patch('/:id', authMiddleware, async (req, res) => {
+async function editarReserva(req, res) {
   const { id } = req.params;
   const { sala_id, data, turno, aula_numero, disciplina } = req.body;
 
@@ -713,7 +713,11 @@ router.patch('/:id', authMiddleware, async (req, res) => {
     }
     res.status(500).json({ error: err.message });
   }
-});
+}
+
+router.patch('/:id', authMiddleware, editarReserva);
+// Alias PUT para compatibilidade com frontend que usa PUT em vez de PATCH
+router.put('/:id', authMiddleware, editarReserva);
 
 /**
  * @swagger
