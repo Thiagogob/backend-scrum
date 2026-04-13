@@ -187,6 +187,14 @@ router.get('/:id', async (req, res) => {
  *                 summary: Capacidade inválida
  *                 value:
  *                   error: "capacidade deve ser um inteiro maior que 0"
+ *       409:
+ *         description: Sala duplicada — já existe uma sala com o mesmo nome/número neste bloco
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Já existe uma sala com esse nome/número neste bloco"
  *       500:
  *         description: Erro interno do servidor
  */

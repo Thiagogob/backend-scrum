@@ -247,9 +247,11 @@ router.post('/', async (req, res) => {
  *     description: |
  *       Atualiza parcialmente os dados de um usuário. Envie apenas os campos que deseja alterar — campos não enviados permanecem inalterados.
  *
- *       **Campos atualizáveis:** `nome`, `tipo`, `ativo`
+ *       **Campos atualizáveis:** `nome`, `email`, `tipo`, `ativo`
  *
- *       **Não é possível alterar** o email ou a senha por esta rota.
+ *       Ao alterar o `email`, o novo endereço deve ser institucional (`@uniuv.edu.br` ou `@unespar.edu.br`) e único no sistema. A alteração é sincronizada automaticamente com o sistema de autenticação.
+ *
+ *       **Não é possível alterar** a senha por esta rota.
  *     parameters:
  *       - in: path
  *         name: id
@@ -268,6 +270,10 @@ router.post('/', async (req, res) => {
  *               nome:
  *                 type: string
  *                 description: Novo nome do usuário
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: 'Novo e-mail institucional (@uniuv.edu.br ou @unespar.edu.br). Sincronizado com o sistema de autenticação.'
  *               tipo:
  *                 type: string
  *                 enum: [professor, admin_cpd]
@@ -277,6 +283,7 @@ router.post('/', async (req, res) => {
  *                 description: Use `false` para desativar o usuário ou `true` para reativá-lo
  *           example:
  *             nome: "Prof. João Silva"
+ *             email: "joao.silva@uniuv.edu.br"
  *             tipo: "professor"
  *             ativo: true
  *     responses:
@@ -287,13 +294,28 @@ router.post('/', async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Usuario'
  *       400:
- *         description: Nenhum campo válido enviado ou tipo inválido
+ *         description: Nenhum campo válido enviado, tipo inválido ou e-mail fora do domínio institucional
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Error'
- *             example:
- *               error: "Nenhum campo fornecido para atualização"
+ *             examples:
+ *               nenhum_campo:
+ *                 summary: Nenhum campo enviado
+ *                 value:
+ *                   error: "Nenhum campo fornecido para atualização"
+ *               email_dominio_invalido:
+ *                 summary: E-mail fora do domínio institucional
+ *                 value:
+ *                   error: "E-mail deve ser institucional (@uniuv.edu.br ou @unespar.edu.br)"
+ *               email_duplicado:
+ *                 summary: E-mail já em uso
+ *                 value:
+ *                   error: "E-mail já cadastrado"
+ *               tipo_invalido:
+ *                 summary: Tipo inválido
+ *                 value:
+ *                   error: "tipo deve ser \"professor\" ou \"admin_cpd\""
  *       404:
  *         description: Usuário não encontrado
  *         content:

@@ -519,6 +519,8 @@ router.post('/', authMiddleware, async (req, res) => {
  *     description: |
  *       Atualiza os dados de uma reserva com status `ativa`. **Requer autenticação.**
  *
+ *       Também aceita **PUT** no mesmo endpoint (`PUT /api/reservas/{id}`) com comportamento idêntico.
+ *
  *       Todos os campos são opcionais — envie apenas o que deseja alterar.
  *
  *       > ⚠️ **`hora_inicio` e `hora_fim` não são campos de entrada.** Para alterar o horário da reserva,
@@ -715,6 +717,80 @@ async function editarReserva(req, res) {
   }
 }
 
+/**
+ * @swagger
+ * /api/reservas/{id}:
+ *   put:
+ *     summary: Edita uma reserva ativa (alias de PATCH)
+ *     tags: [Reservas]
+ *     description: |
+ *       Comportamento idêntico ao `PATCH /api/reservas/{id}`. Aceito para compatibilidade com clientes que utilizam PUT.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID da reserva a ser editada
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               sala_id:
+ *                 type: string
+ *                 format: uuid
+ *               data:
+ *                 type: string
+ *                 format: date
+ *               turno:
+ *                 type: string
+ *                 enum: [matutino, vespertino, noturno]
+ *               aula_numero:
+ *                 type: integer
+ *                 minimum: 1
+ *                 maximum: 4
+ *               disciplina:
+ *                 type: string
+ *           example:
+ *             sala_id: "uuid-da-nova-sala"
+ *             data: "2026-04-15"
+ *             turno: "vespertino"
+ *             aula_numero: 2
+ *             disciplina: "Algoritmos"
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Reserva atualizada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Reserva'
+ *       400:
+ *         $ref: '#/components/responses/400'
+ *       401:
+ *         description: Token JWT não enviado ou inválido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Token de autenticação não fornecido"
+ *       404:
+ *         description: Reserva não encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Reserva não encontrada"
+ *       500:
+ *         description: Erro interno do servidor
+ */
 router.patch('/:id', authMiddleware, editarReserva);
 // Alias PUT para compatibilidade com frontend que usa PUT em vez de PATCH
 router.put('/:id', authMiddleware, editarReserva);
