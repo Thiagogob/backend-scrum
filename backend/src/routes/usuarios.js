@@ -357,8 +357,11 @@ router.put('/:id', async (req, res) => {
       const authIdResult = await pool.query('SELECT auth_id FROM usuario WHERE id = $1', [id]);
       if (authIdResult.rowCount === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
 
+      const authId = authIdResult.rows[0].auth_id;
+      if (!authId) return res.status(400).json({ error: 'Usuário não possui conta de autenticação vinculada' });
+
       const { error: supabaseError } = await supabase.auth.admin.updateUserById(
-        authIdResult.rows[0].auth_id,
+        authId,
         { email }
       );
       if (supabaseError) {
