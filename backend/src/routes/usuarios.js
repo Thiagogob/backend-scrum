@@ -260,6 +260,7 @@ router.post('/', async (req, res) => {
  *           type: string
  *           format: uuid
  *         description: ID único do usuário
+ *         example: "c22e2050-b098-4a4d-8661-2229a2c02f2d"
  *     requestBody:
  *       required: true
  *       content:
@@ -294,7 +295,7 @@ router.post('/', async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Usuario'
  *       400:
- *         description: Nenhum campo válido enviado, tipo inválido ou e-mail fora do domínio institucional
+ *         description: Nenhum campo válido enviado, tipo inválido, e-mail fora do domínio institucional ou usuário sem conta de autenticação vinculada
  *         content:
  *           application/json:
  *             schema:
@@ -316,6 +317,10 @@ router.post('/', async (req, res) => {
  *                 summary: Tipo inválido
  *                 value:
  *                   error: "tipo deve ser \"professor\" ou \"admin_cpd\""
+ *               sem_auth_vinculado:
+ *                 summary: Usuário sem conta de autenticação vinculada
+ *                 value:
+ *                   error: "Usuário não possui conta de autenticação vinculada"
  *       404:
  *         description: Usuário não encontrado
  *         content:
