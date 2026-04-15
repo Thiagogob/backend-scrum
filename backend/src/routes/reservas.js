@@ -367,6 +367,7 @@ router.get('/:id', async (req, res) => {
  *
  *       **Regras de negócio aplicadas:**
  *       - ❌ Datas passadas não são permitidas
+ *       - ❌ Horários já passados no dia atual não são permitidos
  *       - ❌ Professores só podem reservar dentro do mês corrente
  *       - ❌ Uma sala não pode ter duas reservas ativas no mesmo turno e aula
  *       - ❌ Salas inativas não podem ser reservadas
@@ -413,6 +414,10 @@ router.get('/:id', async (req, res) => {
  *                 summary: Data no passado
  *                 value:
  *                   error: "Não é permitido fazer reservas em datas passadas"
+ *               horario_passado:
+ *                 summary: Horário já passou no dia atual
+ *                 value:
+ *                   error: "Não é permitido fazer reservas em horários já passados"
  *               mes_diferente:
  *                 summary: Professor tentando reservar fora do mês corrente
  *                 value:
@@ -456,6 +461,17 @@ router.post('/', authMiddleware, async (req, res) => {
   const dataReserva = new Date(data + 'T00:00:00');
   if (dataReserva < hoje) {
     return res.status(400).json({ error: 'Não é permitido fazer reservas em datas passadas' });
+  }
+
+  // Validação: não permitir horários já passados no dia atual
+  if (dataReserva.getTime() === hoje.getTime()) {
+    const { hora_inicio } = HORARIOS[turno][aulaNum];
+    const [hh, mm] = hora_inicio.split(':').map(Number);
+    const inicioSlot = new Date();
+    inicioSlot.setHours(hh, mm, 0, 0);
+    if (new Date() > inicioSlot) {
+      return res.status(400).json({ error: 'Não é permitido fazer reservas em horários já passados' });
+    }
   }
 
   try {
@@ -529,6 +545,7 @@ router.post('/', authMiddleware, async (req, res) => {
  *
  *       **Regras de negócio aplicadas:**
  *       - ❌ Datas passadas não são permitidas
+ *       - ❌ Horários já passados no dia atual não são permitidos
  *       - ❌ Professores só podem reservar dentro do mês corrente
  *       - ❌ Conflito de horário com outra reserva ativa na mesma sala (exceto a própria)
  *       - ❌ Salas inativas não podem ser reservadas
@@ -608,6 +625,10 @@ router.post('/', authMiddleware, async (req, res) => {
  *                 summary: Data no passado
  *                 value:
  *                   error: "Não é permitido fazer reservas em datas passadas"
+ *               horario_passado:
+ *                 summary: Horário já passou no dia atual
+ *                 value:
+ *                   error: "Não é permitido fazer reservas em horários já passados"
  *               mes_diferente:
  *                 summary: Professor fora do mês corrente
  *                 value:
@@ -672,6 +693,17 @@ async function editarReserva(req, res) {
     const dataReserva = new Date(novaData + 'T00:00:00');
     if (dataReserva < hoje) {
       return res.status(400).json({ error: 'Não é permitido fazer reservas em datas passadas' });
+    }
+
+    // Validação: não permitir horários já passados no dia atual
+    if (dataReserva.getTime() === hoje.getTime()) {
+      const { hora_inicio } = HORARIOS[novoTurno][novaAula];
+      const [hh, mm] = hora_inicio.split(':').map(Number);
+      const inicioSlot = new Date();
+      inicioSlot.setHours(hh, mm, 0, 0);
+      if (new Date() > inicioSlot) {
+        return res.status(400).json({ error: 'Não é permitido fazer reservas em horários já passados' });
+      }
     }
 
     // Validação: professor só pode reservar no mês corrente
