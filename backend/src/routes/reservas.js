@@ -455,21 +455,22 @@ router.post('/', authMiddleware, async (req, res) => {
     return res.status(400).json({ error: 'aula_numero deve ser 1, 2, 3 ou 4' });
   }
 
-  // Validação: não permitir reservas retroativas
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  const dataReserva = new Date(data + 'T00:00:00');
-  if (dataReserva < hoje) {
+  // Validação: não permitir reservas retroativas (horário de Brasília UTC-3)
+  const agora = new Date();
+  const TZ = 'America/Sao_Paulo';
+  const hojeStrBR = new Intl.DateTimeFormat('sv-SE', { timeZone: TZ }).format(agora); // YYYY-MM-DD
+  if (data < hojeStrBR) {
     return res.status(400).json({ error: 'Não é permitido fazer reservas em datas passadas' });
   }
 
   // Validação: não permitir horários já passados no dia atual
-  if (dataReserva.getTime() === hoje.getTime()) {
+  if (data === hojeStrBR) {
     const { hora_inicio } = HORARIOS[turno][aulaNum];
     const [hh, mm] = hora_inicio.split(':').map(Number);
-    const inicioSlot = new Date();
-    inicioSlot.setHours(hh, mm, 0, 0);
-    if (new Date() > inicioSlot) {
+    const agoraBR = new Date(agora.toLocaleString('en-US', { timeZone: TZ }));
+    const minutosAgora = agoraBR.getHours() * 60 + agoraBR.getMinutes();
+    const minutosSlot = hh * 60 + mm;
+    if (minutosAgora > minutosSlot) {
       return res.status(400).json({ error: 'Não é permitido fazer reservas em horários já passados' });
     }
   }
@@ -480,9 +481,10 @@ router.post('/', authMiddleware, async (req, res) => {
     if (usuarioResult.rowCount === 0) return res.status(400).json({ error: 'Usuário não encontrado' });
 
     if (usuarioResult.rows[0].tipo === 'professor') {
-      const agora = new Date();
-      const mesAtual = agora.getMonth();
-      const anoAtual = agora.getFullYear();
+      const agoraBR = new Date(agora.toLocaleString('en-US', { timeZone: TZ }));
+      const mesAtual = agoraBR.getMonth();
+      const anoAtual = agoraBR.getFullYear();
+      const dataReserva = new Date(data + 'T00:00:00');
       const mesReserva = dataReserva.getMonth();
       const anoReserva = dataReserva.getFullYear();
 
@@ -687,21 +689,22 @@ async function editarReserva(req, res) {
     const novaAula = aulaNum !== undefined ? aulaNum : reserva.aula_numero;
     const novaSalaId = sala_id || reserva.sala_id;
 
-    // Validação: não permitir datas passadas
-    const hoje = new Date();
-    hoje.setHours(0, 0, 0, 0);
-    const dataReserva = new Date(novaData + 'T00:00:00');
-    if (dataReserva < hoje) {
+    // Validação: não permitir datas passadas (horário de Brasília UTC-3)
+    const agora = new Date();
+    const TZ = 'America/Sao_Paulo';
+    const hojeStrBR = new Intl.DateTimeFormat('sv-SE', { timeZone: TZ }).format(agora); // YYYY-MM-DD
+    if (novaData < hojeStrBR) {
       return res.status(400).json({ error: 'Não é permitido fazer reservas em datas passadas' });
     }
 
     // Validação: não permitir horários já passados no dia atual
-    if (dataReserva.getTime() === hoje.getTime()) {
+    if (novaData === hojeStrBR) {
       const { hora_inicio } = HORARIOS[novoTurno][novaAula];
       const [hh, mm] = hora_inicio.split(':').map(Number);
-      const inicioSlot = new Date();
-      inicioSlot.setHours(hh, mm, 0, 0);
-      if (new Date() > inicioSlot) {
+      const agoraBR = new Date(agora.toLocaleString('en-US', { timeZone: TZ }));
+      const minutosAgora = agoraBR.getHours() * 60 + agoraBR.getMinutes();
+      const minutosSlot = hh * 60 + mm;
+      if (minutosAgora > minutosSlot) {
         return res.status(400).json({ error: 'Não é permitido fazer reservas em horários já passados' });
       }
     }
@@ -709,8 +712,9 @@ async function editarReserva(req, res) {
     // Validação: professor só pode reservar no mês corrente
     const usuarioResult = await pool.query('SELECT tipo FROM usuario WHERE id = $1', [reserva.usuario_id]);
     if (usuarioResult.rows[0].tipo === 'professor') {
-      const agora = new Date();
-      if (dataReserva.getFullYear() !== agora.getFullYear() || dataReserva.getMonth() !== agora.getMonth()) {
+      const agoraBR = new Date(agora.toLocaleString('en-US', { timeZone: TZ }));
+      const dataReserva = new Date(novaData + 'T00:00:00');
+      if (dataReserva.getFullYear() !== agoraBR.getFullYear() || dataReserva.getMonth() !== agoraBR.getMonth()) {
         return res.status(400).json({ error: 'Professores só podem reservar salas dentro do mês corrente' });
       }
     }
