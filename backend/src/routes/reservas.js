@@ -244,7 +244,7 @@ router.get('/disponibilidade', async (req, res) => {
  *         description: 'Filtra pelo status da reserva. Use "ativa" para ver apenas reservas em vigor'
  *     responses:
  *       200:
- *         description: Lista de reservas retornada com sucesso, ordenada por data decrescente
+ *         description: Lista de reservas retornada com sucesso. Reservas futuras aparecem primeiro (mais próxima de hoje primeiro), seguidas das passadas (mais recente primeiro). Dentro do mesmo dia, ordenadas por horário de início.
  *         content:
  *           application/json:
  *             schema:
@@ -268,6 +268,11 @@ router.get('/', async (req, res) => {
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
+  // Use Brazil's current date (UTC-3) as the reference for sorting
+  const hojeStrBR = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+  values.push(hojeStrBR);
+  const hojeParam = `$${values.length}::date`;
+
   try {
     const { rows } = await pool.query(
       `SELECT r.*,
@@ -277,7 +282,13 @@ router.get('/', async (req, res) => {
        JOIN sala s ON s.id = r.sala_id
        JOIN usuario u ON u.id = r.usuario_id
        ${where}
-       ORDER BY r.data DESC, r.turno, r.aula_numero`,
+       ORDER BY
+         CASE WHEN r.data >= ${hojeParam} THEN 0 ELSE 1 END ASC,
+         CASE
+           WHEN r.data >= ${hojeParam} THEN (r.data - ${hojeParam})
+           ELSE (${hojeParam} - r.data)
+         END ASC,
+         r.hora_inicio ASC`,
       values
     );
     res.json(rows);
