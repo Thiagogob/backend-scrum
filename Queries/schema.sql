@@ -120,14 +120,40 @@ comment on column public.reserva.cancelado_por is 'Quem realizou o cancelamento.
 
 
 -- ============================================================
+-- LOG DE AUDITORIA
+-- ============================================================
+
+create table public.log_auditoria (
+  id             uuid        primary key default gen_random_uuid(),
+  acao           text        not null,
+  entidade       text        not null,
+  entidade_id    uuid,
+  realizado_por  uuid        references public.usuario(id) on delete set null,
+  detalhes       jsonb,
+  criado_em      timestamptz not null default now()
+);
+
+comment on table  public.log_auditoria              is 'Trilha de auditoria de ações realizadas no sistema.';
+comment on column public.log_auditoria.acao         is 'Ação realizada. Ex: usuario.bloqueio, sala.criacao, reserva.cancelamento_forcado.';
+comment on column public.log_auditoria.entidade     is 'Tipo da entidade afetada: usuario | sala | reserva.';
+comment on column public.log_auditoria.entidade_id  is 'UUID da entidade afetada.';
+comment on column public.log_auditoria.realizado_por is 'Usuário que realizou a ação (nulo se não autenticado).';
+comment on column public.log_auditoria.detalhes     is 'Dados adicionais da ação em formato JSON (campos alterados, valores, etc.).';
+
+
+-- ============================================================
 -- ÍNDICES
 -- ============================================================
 
-create index idx_reserva_sala_data  on public.reserva (sala_id, data, turno);
-create index idx_reserva_usuario    on public.reserva (usuario_id, data);
-create index idx_sala_bloco_ativo   on public.sala    (bloco, ativo);
-create index idx_usuario_auth_id    on public.usuario (auth_id);
-create index idx_usuario_email      on public.usuario (email);
+create index idx_reserva_sala_data  on public.reserva      (sala_id, data, turno);
+create index idx_reserva_usuario    on public.reserva      (usuario_id, data);
+create index idx_sala_bloco_ativo   on public.sala         (bloco, ativo);
+create index idx_usuario_auth_id    on public.usuario      (auth_id);
+create index idx_usuario_email      on public.usuario      (email);
+create index idx_log_entidade       on public.log_auditoria (entidade, entidade_id);
+create index idx_log_acao           on public.log_auditoria (acao);
+create index idx_log_realizado_por  on public.log_auditoria (realizado_por);
+create index idx_log_criado_em      on public.log_auditoria (criado_em desc);
 
 
 -- ============================================================

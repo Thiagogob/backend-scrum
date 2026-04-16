@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const pool = require('../config/db');
 const authMiddleware = require('../middlewares/authMiddleware');
+const registrarLog = require('../utils/logHelper');
 
 const router = Router();
 
@@ -530,6 +531,13 @@ router.post('/', authMiddleware, async (req, res) => {
        RETURNING *`,
       [sala_id, usuario_id, criador, data, turno, aulaNum, hora_inicio, hora_fim, disciplina || null]
     );
+    await registrarLog(pool, {
+      acao: 'reserva.criacao',
+      entidade: 'reserva',
+      entidade_id: rows[0].id,
+      realizado_por: req.usuario?.id || null,
+      detalhes: { sala_id, usuario_id, data, turno, aula_numero: aulaNum, disciplina: disciplina || null, criado_por: criador },
+    });
     res.status(201).json(rows[0]);
   } catch (err) {
     if (err.code === '23505') {
@@ -755,6 +763,19 @@ async function editarReserva(req, res) {
        RETURNING *`,
       [novaSalaId, novaData, novoTurno, novaAula, hora_inicio, hora_fim, novaDisciplina, id]
     );
+    const camposAlterados = [];
+    if (sala_id) camposAlterados.push('sala_id');
+    if (data) camposAlterados.push('data');
+    if (turno) camposAlterados.push('turno');
+    if (aula_numero !== undefined) camposAlterados.push('aula_numero');
+    if (disciplina !== undefined) camposAlterados.push('disciplina');
+    await registrarLog(pool, {
+      acao: 'reserva.edicao',
+      entidade: 'reserva',
+      entidade_id: id,
+      realizado_por: req.usuario?.id || null,
+      detalhes: { campos_alterados: camposAlterados, data_nova: novaData, turno_novo: novoTurno, aula_nova: novaAula },
+    });
     res.json(rows[0]);
   } catch (err) {
     if (err.code === '23505') {
@@ -931,9 +952,10 @@ router.patch('/:id/cancelar', authMiddleware, async (req, res) => {
   }
 
   try {
-    const reservaResult = await pool.query('SELECT status FROM reserva WHERE id = $1', [id]);
+    const reservaResult = await pool.query('SELECT status, usuario_id, data, turno, sala_id FROM reserva WHERE id = $1', [id]);
     if (reservaResult.rowCount === 0) return res.status(404).json({ error: 'Reserva não encontrada' });
-    if (reservaResult.rows[0].status !== 'ativa') {
+    const reserva = reservaResult.rows[0];
+    if (reserva.status !== 'ativa') {
       return res.status(400).json({ error: 'Apenas reservas ativas podem ser canceladas' });
     }
 
@@ -944,6 +966,26 @@ router.patch('/:id/cancelar', authMiddleware, async (req, res) => {
        RETURNING *`,
       [cancelado_por, id]
     );
+
+    // Cancelamento forçado: quando o cancelador é diferente do titular da reserva
+    const acaoLog = cancelado_por !== reserva.usuario_id
+      ? 'reserva.cancelamento_forcado'
+      : 'reserva.cancelamento';
+
+    await registrarLog(pool, {
+      acao: acaoLog,
+      entidade: 'reserva',
+      entidade_id: id,
+      realizado_por: req.usuario?.id || cancelado_por || null,
+      detalhes: {
+        cancelado_por,
+        usuario_id_titular: reserva.usuario_id,
+        data_reserva: reserva.data,
+        turno: reserva.turno,
+        sala_id: reserva.sala_id,
+      },
+    });
+
     res.json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });

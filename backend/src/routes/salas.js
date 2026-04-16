@@ -1,5 +1,6 @@
 const { Router } = require('express');
 const pool = require('../config/db');
+const registrarLog = require('../utils/logHelper');
 
 const router = Router();
 
@@ -226,6 +227,13 @@ router.post('/', async (req, res) => {
        RETURNING *`,
       [nome_numero, bloco, Number(capacidade), tipo_sala]
     );
+    await registrarLog(pool, {
+      acao: 'sala.criacao',
+      entidade: 'sala',
+      entidade_id: rows[0].id,
+      realizado_por: req.usuario?.id || null,
+      detalhes: { nome_numero, bloco, capacidade: Number(capacidade), tipo_sala },
+    });
     res.status(201).json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -440,6 +448,23 @@ router.put('/:id', async (req, res) => {
       values
     );
     if (rowCount === 0) return res.status(404).json({ error: 'Sala não encontrada' });
+
+    const acaoLog = (ativo !== undefined && !ativo) ? 'sala.indisponibilidade' : 'sala.edicao';
+    const camposAlterados = [];
+    if (nome_numero !== undefined) camposAlterados.push('nome_numero');
+    if (bloco !== undefined) camposAlterados.push('bloco');
+    if (capacidade !== undefined) camposAlterados.push('capacidade');
+    if (tipo_sala !== undefined) camposAlterados.push('tipo_sala');
+    if (ativo !== undefined) camposAlterados.push('ativo');
+
+    await registrarLog(pool, {
+      acao: acaoLog,
+      entidade: 'sala',
+      entidade_id: id,
+      realizado_por: req.usuario?.id || null,
+      detalhes: { campos_alterados: camposAlterados, nome_numero: rows[0].nome_numero, bloco: rows[0].bloco },
+    });
+
     res.json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -493,6 +518,13 @@ router.delete('/:id', async (req, res) => {
       [id]
     );
     if (rowCount === 0) return res.status(404).json({ error: 'Sala não encontrada' });
+    await registrarLog(pool, {
+      acao: 'sala.indisponibilidade',
+      entidade: 'sala',
+      entidade_id: id,
+      realizado_por: req.usuario?.id || null,
+      detalhes: { nome_numero: rows[0].nome_numero, bloco: rows[0].bloco },
+    });
     res.json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });

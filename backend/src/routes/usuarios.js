@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const pool = require('../config/db');
 const supabase = require('../config/supabase');
+const registrarLog = require('../utils/logHelper');
 
 const router = Router();
 
@@ -228,13 +229,29 @@ router.post('/', async (req, res) => {
     [data.user.id, nome, email, tipo]
   );
 
-  if (rows.length > 0) return res.status(201).json(rows[0]);
+  if (rows.length > 0) {
+    await registrarLog(pool, {
+      acao: 'usuario.criacao',
+      entidade: 'usuario',
+      entidade_id: rows[0].id,
+      realizado_por: req.usuario?.id || null,
+      detalhes: { nome, email, tipo },
+    });
+    return res.status(201).json(rows[0]);
+  }
 
   // Trigger already inserted it — just fetch
   const { rows: existing } = await pool.query(
     'SELECT id, nome, email, tipo, ativo, criado_em FROM usuario WHERE auth_id = $1',
     [data.user.id]
   );
+  await registrarLog(pool, {
+    acao: 'usuario.criacao',
+    entidade: 'usuario',
+    entidade_id: existing[0]?.id || null,
+    realizado_por: req.usuario?.id || null,
+    detalhes: { nome, email, tipo },
+  });
   res.status(201).json(existing[0]);
 });
 
@@ -397,6 +414,31 @@ router.put('/:id?', async (req, res) => {
       values
     );
     if (rowCount === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
+
+    // Determina a ação mais específica para o log
+    let acaoLog;
+    if (ativo !== undefined) {
+      acaoLog = ativo ? 'usuario.desbloqueio' : 'usuario.bloqueio';
+    } else if (tipo !== undefined) {
+      acaoLog = 'usuario.troca_perfil';
+    } else {
+      acaoLog = 'usuario.edicao';
+    }
+
+    const camposAlterados = [];
+    if (nome !== undefined) camposAlterados.push('nome');
+    if (email !== undefined) camposAlterados.push('email');
+    if (tipo !== undefined) camposAlterados.push('tipo');
+    if (ativo !== undefined) camposAlterados.push('ativo');
+
+    await registrarLog(pool, {
+      acao: acaoLog,
+      entidade: 'usuario',
+      entidade_id: id,
+      realizado_por: req.usuario?.id || null,
+      detalhes: { campos_alterados: camposAlterados, ...(tipo !== undefined && { tipo_novo: tipo }), ...(ativo !== undefined && { ativo_novo: ativo }) },
+    });
+
     res.json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -448,6 +490,13 @@ router.delete('/:id', async (req, res) => {
       [id]
     );
     if (rowCount === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
+    await registrarLog(pool, {
+      acao: 'usuario.exclusao',
+      entidade: 'usuario',
+      entidade_id: id,
+      realizado_por: req.usuario?.id || null,
+      detalhes: { nome: rows[0].nome, email: rows[0].email },
+    });
     res.json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
