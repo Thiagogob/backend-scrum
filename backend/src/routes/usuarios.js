@@ -252,14 +252,16 @@ router.post('/', async (req, res) => {
  *       Ao alterar o `email`, o novo endereço deve ser institucional (`@uniuv.edu.br` ou `@unespar.edu.br`) e único no sistema. A alteração é sincronizada automaticamente com o sistema de autenticação.
  *
  *       **Não é possível alterar** a senha por esta rota.
+ *
+ *       **Identificação do usuário:** o `id` pode ser fornecido na URL (`PUT /api/usuarios/{id}`) **ou** no corpo da requisição (`{ "id": "uuid", ... }`). O parâmetro da URL tem prioridade sobre o corpo.
  *     parameters:
  *       - in: path
  *         name: id
- *         required: true
+ *         required: false
  *         schema:
  *           type: string
  *           format: uuid
- *         description: ID único do usuário
+ *         description: ID único do usuário. Pode ser omitido se o `id` for enviado no corpo da requisição.
  *         example: "c22e2050-b098-4a4d-8661-2229a2c02f2d"
  *     requestBody:
  *       required: true
@@ -268,6 +270,10 @@ router.post('/', async (req, res) => {
  *           schema:
  *             type: object
  *             properties:
+ *               id:
+ *                 type: string
+ *                 format: uuid
+ *                 description: ID do usuário. Obrigatório se não for informado na URL.
  *               nome:
  *                 type: string
  *                 description: Novo nome do usuário
@@ -283,6 +289,7 @@ router.post('/', async (req, res) => {
  *                 type: boolean
  *                 description: Use `false` para desativar o usuário ou `true` para reativá-lo
  *           example:
+ *             id: "c22e2050-b098-4a4d-8661-2229a2c02f2d"
  *             nome: "Prof. João Silva"
  *             email: "joao.silva@uniuv.edu.br"
  *             tipo: "professor"
@@ -295,12 +302,16 @@ router.post('/', async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Usuario'
  *       400:
- *         description: Nenhum campo válido enviado, tipo inválido, e-mail fora do domínio institucional ou usuário sem conta de autenticação vinculada
+ *         description: ID ausente, nenhum campo válido enviado, tipo inválido, e-mail fora do domínio institucional ou usuário sem conta de autenticação vinculada
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Error'
  *             examples:
+ *               id_ausente:
+ *                 summary: ID não fornecido
+ *                 value:
+ *                   error: "ID do usuário é obrigatório"
  *               nenhum_campo:
  *                 summary: Nenhum campo enviado
  *                 value:
@@ -332,8 +343,10 @@ router.post('/', async (req, res) => {
  *       500:
  *         description: Erro interno do servidor
  */
-router.put('/:id', async (req, res) => {
-  const { id } = req.params;
+router.put('/:id?', async (req, res) => {
+  const id = req.params.id || req.body.id;
+  if (!id) return res.status(400).json({ error: 'ID do usuário é obrigatório' });
+
   const { nome, email, tipo, ativo } = req.body;
 
   if (tipo !== undefined && !['professor', 'admin_cpd'].includes(tipo)) {
