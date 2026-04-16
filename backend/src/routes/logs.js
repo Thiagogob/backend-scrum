@@ -81,7 +81,59 @@ const router = Router();
  *     tags: [Logs]
  *     description: |
  *       Retorna as entradas do log de auditoria, ordenadas da mais recente para a mais antiga.
- *       Todos os filtros são opcionais e combináveis. Ver o guia de uso na seção **Logs** acima.
+ *       Todos os filtros são opcionais e combináveis.
+ *
+ *       **Exemplos de uso:**
+ *
+ *       **1. Todas as ações (últimas 100)**
+ *       ```
+ *       GET /api/logs
+ *       ```
+ *
+ *       **2. Apenas logs de usuários**
+ *       ```
+ *       GET /api/logs?entidade=usuario
+ *       ```
+ *
+ *       **3. Apenas logs de salas**
+ *       ```
+ *       GET /api/logs?entidade=sala
+ *       ```
+ *
+ *       **4. Apenas logs de reservas**
+ *       ```
+ *       GET /api/logs?entidade=reserva
+ *       ```
+ *
+ *       **5. Ação específica — cancelamentos forçados por admins**
+ *       ```
+ *       GET /api/logs?acao=reserva.cancelamento_forcado
+ *       ```
+ *
+ *       **6. Ação específica — trocas de perfil**
+ *       ```
+ *       GET /api/logs?acao=usuario.troca_perfil
+ *       ```
+ *
+ *       **7. Histórico completo de um usuário específico (como entidade afetada)**
+ *       ```
+ *       GET /api/logs?entidade=usuario&entidade_id=<uuid-do-usuario>
+ *       ```
+ *
+ *       **8. Tudo que um admin fez**
+ *       ```
+ *       GET /api/logs?realizado_por=<uuid-do-admin>
+ *       ```
+ *
+ *       **9. Filtrar por período**
+ *       ```
+ *       GET /api/logs?data_inicio=2026-04-01&data_fim=2026-04-30
+ *       ```
+ *
+ *       **10. Combinar filtros — cancelamentos forçados por um admin em um dia**
+ *       ```
+ *       GET /api/logs?acao=reserva.cancelamento_forcado&realizado_por=<uuid>&data_inicio=2026-04-16&data_fim=2026-04-16
+ *       ```
  *
  *     parameters:
  *       - in: query

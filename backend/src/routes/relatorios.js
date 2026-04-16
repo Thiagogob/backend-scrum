@@ -1,5 +1,9 @@
 const { Router } = require('express');
 const pool = require('../config/db');
+const {
+  csvDiario, csvSemanal, csvMensal, csvSemestral,
+  pdfDiario, pdfSemanal, pdfMensal, pdfSemestral,
+} = require('../utils/exportHelper');
 
 const router = Router();
 
@@ -54,12 +58,24 @@ const MESES = [
  *
  *     ---
  *
- *     ### Campos comuns na resposta
+ *     ### Exportar para CSV ou PDF
+ *     Adicione `&formato=csv` ou `&formato=pdf` a qualquer endpoint de relatório para baixar o arquivo.
+ *     ```
+ *     GET /api/relatorios/diario?data=2026-04-16&formato=csv
+ *     GET /api/relatorios/mensal?mes=4&ano=2026&formato=pdf
+ *     ```
+ *     - **CSV** — planilha compatível com Excel (UTF-8 BOM), todos os blocos de dados separados por linha em branco
+ *     - **PDF** — documento A4 formatado com cabeçalho institucional, métricas destacadas e tabelas de dados, pronto para impressão
+ *
+ *     ---
+ *
+ *     ### Campos comuns na resposta JSON
  *     - `total_reservas` — reservas ativas + concluídas (exclui canceladas)
  *     - `canceladas` — reservas canceladas no período
  *     - `salas_utilizadas` — número de salas distintas com pelo menos uma reserva não-cancelada
  */
 
+// Shared formato parameter for Swagger (reused in each endpoint)
 // ──────────────────────────────────────────────────────────────────────────────
 // DIÁRIO
 // ──────────────────────────────────────────────────────────────────────────────
@@ -76,6 +92,8 @@ const MESES = [
  *       **Resposta inclui:**
  *       - `resumo` — contagens por status (ativas, concluídas, canceladas) e salas utilizadas
  *       - `reservas` — lista com sala, professor, turno, aula e horário
+ *
+ *       Adicione `&formato=csv` ou `&formato=pdf` para exportar.
  *     parameters:
  *       - in: query
  *         name: data
@@ -85,6 +103,14 @@ const MESES = [
  *           format: date
  *         description: "Data do relatório (YYYY-MM-DD). Ex: 2026-04-16"
  *         example: "2026-04-16"
+ *       - in: query
+ *         name: formato
+ *         schema:
+ *           type: string
+ *           enum: [csv, pdf]
+ *         description: |
+ *           Formato de exportação. Quando informado, retorna o arquivo para download em vez de JSON.
+ *           `csv` — planilha compatível com Excel · `pdf` — documento A4 formatado
  *     responses:
  *       200:
  *         description: Relatório diário gerado com sucesso
@@ -120,14 +146,13 @@ const MESES = [
  *         description: Erro interno do servidor
  */
 router.get('/diario', async (req, res) => {
-  const { data } = req.query;
+  const { data, formato } = req.query;
   if (!data) return res.status(400).json({ error: 'Parâmetro obrigatório: data' });
 
   try {
     const [resumoResult, reservasResult] = await Promise.all([
       pool.query(
         `SELECT
-           COUNT(*)                                              AS total_geral,
            COUNT(*) FILTER (WHERE status != 'cancelada')        AS total_reservas,
            COUNT(*) FILTER (WHERE status = 'ativa')             AS ativas,
            COUNT(*) FILTER (WHERE status = 'concluida')         AS concluidas,
@@ -153,7 +178,7 @@ router.get('/diario', async (req, res) => {
     ]);
 
     const r = resumoResult.rows[0];
-    res.json({
+    const payload = {
       data,
       resumo: {
         total_reservas:   parseInt(r.total_reservas),
@@ -163,7 +188,21 @@ router.get('/diario', async (req, res) => {
         salas_utilizadas: parseInt(r.salas_utilizadas),
       },
       reservas: reservasResult.rows,
-    });
+    };
+
+    if (formato === 'csv') {
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="relatorio-diario-${data}.csv"`);
+      return res.send(csvDiario(payload));
+    }
+
+    if (formato === 'pdf') {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="relatorio-diario-${data}.pdf"`);
+      return pdfDiario(res, payload);
+    }
+
+    res.json(payload);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -187,6 +226,8 @@ router.get('/diario', async (req, res) => {
  *       - `resumo` — totais do período completo
  *       - `por_dia` — contagem de reservas e salas utilizadas para cada dia
  *       - `reservas` — lista completa de reservas no período
+ *
+ *       Adicione `&formato=csv` ou `&formato=pdf` para exportar.
  *     parameters:
  *       - in: query
  *         name: data_inicio
@@ -204,6 +245,14 @@ router.get('/diario', async (req, res) => {
  *           format: date
  *         description: "Último dia do período, inclusivo (YYYY-MM-DD). Ex: 2026-04-20"
  *         example: "2026-04-20"
+ *       - in: query
+ *         name: formato
+ *         schema:
+ *           type: string
+ *           enum: [csv, pdf]
+ *         description: |
+ *           Formato de exportação. Quando informado, retorna o arquivo para download em vez de JSON.
+ *           `csv` — planilha compatível com Excel · `pdf` — documento A4 formatado
  *     responses:
  *       200:
  *         description: Relatório semanal gerado com sucesso
@@ -245,7 +294,7 @@ router.get('/diario', async (req, res) => {
  *         description: Erro interno do servidor
  */
 router.get('/semanal', async (req, res) => {
-  const { data_inicio, data_fim } = req.query;
+  const { data_inicio, data_fim, formato } = req.query;
   if (!data_inicio || !data_fim) {
     return res.status(400).json({ error: 'Parâmetros obrigatórios: data_inicio, data_fim' });
   }
@@ -289,7 +338,7 @@ router.get('/semanal', async (req, res) => {
     ]);
 
     const r = resumoResult.rows[0];
-    res.json({
+    const payload = {
       data_inicio,
       data_fim,
       resumo: {
@@ -304,7 +353,21 @@ router.get('/semanal', async (req, res) => {
         salas_utilizadas: parseInt(d.salas_utilizadas),
       })),
       reservas: reservasResult.rows,
-    });
+    };
+
+    if (formato === 'csv') {
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="relatorio-semanal-${data_inicio}-${data_fim}.csv"`);
+      return res.send(csvSemanal(payload));
+    }
+
+    if (formato === 'pdf') {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="relatorio-semanal-${data_inicio}-${data_fim}.pdf"`);
+      return pdfSemanal(res, payload);
+    }
+
+    res.json(payload);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -327,6 +390,8 @@ router.get('/semanal', async (req, res) => {
  *       - `resumo` — total de reservas, canceladas, salas utilizadas e professores ativos
  *       - `por_sala` — ranking das salas mais utilizadas (inclui salas com zero reservas)
  *       - `por_dia` — distribuição de reservas por dia do mês
+ *
+ *       Adicione `&formato=csv` ou `&formato=pdf` para exportar.
  *     parameters:
  *       - in: query
  *         name: mes
@@ -344,6 +409,14 @@ router.get('/semanal', async (req, res) => {
  *           type: integer
  *         description: "Ano com 4 dígitos. Ex: 2026"
  *         example: 2026
+ *       - in: query
+ *         name: formato
+ *         schema:
+ *           type: string
+ *           enum: [csv, pdf]
+ *         description: |
+ *           Formato de exportação. Quando informado, retorna o arquivo para download em vez de JSON.
+ *           `csv` — planilha compatível com Excel · `pdf` — documento A4 formatado
  *     responses:
  *       200:
  *         description: Relatório mensal gerado com sucesso
@@ -379,8 +452,9 @@ router.get('/semanal', async (req, res) => {
  *         description: Erro interno do servidor
  */
 router.get('/mensal', async (req, res) => {
-  const mes = parseInt(req.query.mes);
-  const ano = parseInt(req.query.ano);
+  const mes    = parseInt(req.query.mes);
+  const ano    = parseInt(req.query.ano);
+  const { formato } = req.query;
 
   if (!mes || !ano || mes < 1 || mes > 12) {
     return res.status(400).json({ error: 'Parâmetros obrigatórios: mes (1-12), ano' });
@@ -426,7 +500,7 @@ router.get('/mensal', async (req, res) => {
     ]);
 
     const r = resumoResult.rows[0];
-    res.json({
+    const payload = {
       mes,
       nome_mes: MESES[mes],
       ano,
@@ -449,7 +523,21 @@ router.get('/mensal', async (req, res) => {
         canceladas:       parseInt(d.canceladas),
         salas_utilizadas: parseInt(d.salas_utilizadas),
       })),
-    });
+    };
+
+    if (formato === 'csv') {
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="relatorio-mensal-${String(mes).padStart(2,'0')}-${ano}.csv"`);
+      return res.send(csvMensal(payload));
+    }
+
+    if (formato === 'pdf') {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="relatorio-mensal-${String(mes).padStart(2,'0')}-${ano}.pdf"`);
+      return pdfMensal(res, payload);
+    }
+
+    res.json(payload);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -473,6 +561,8 @@ router.get('/mensal', async (req, res) => {
  *       **Resposta inclui:**
  *       - `resumo` — totais do semestre completo
  *       - `por_mes` — totais mensais com nome do mês, reservas e salas utilizadas
+ *
+ *       Adicione `&formato=csv` ou `&formato=pdf` para exportar.
  *     parameters:
  *       - in: query
  *         name: semestre
@@ -489,6 +579,14 @@ router.get('/mensal', async (req, res) => {
  *           type: integer
  *         description: "Ano com 4 dígitos. Ex: 2026"
  *         example: 2026
+ *       - in: query
+ *         name: formato
+ *         schema:
+ *           type: string
+ *           enum: [csv, pdf]
+ *         description: |
+ *           Formato de exportação. Quando informado, retorna o arquivo para download em vez de JSON.
+ *           `csv` — planilha compatível com Excel · `pdf` — documento A4 formatado
  *     responses:
  *       200:
  *         description: Relatório semestral gerado com sucesso
@@ -527,16 +625,15 @@ router.get('/mensal', async (req, res) => {
 router.get('/semestral', async (req, res) => {
   const semestre = parseInt(req.query.semestre);
   const ano      = parseInt(req.query.ano);
+  const { formato } = req.query;
 
   if (!semestre || !ano || ![1, 2].includes(semestre)) {
     return res.status(400).json({ error: 'Parâmetros obrigatórios: semestre (1 ou 2), ano' });
   }
 
-  const mesInicio = semestre === 1 ? 1 : 7;
-  const mesFim    = semestre === 1 ? 6 : 12;
+  const mesInicio  = semestre === 1 ? 1 : 7;
   const dataInicio = `${ano}-${String(mesInicio).padStart(2, '0')}-01`;
-  // Last day of the semester: first day of the next month minus 1
-  const dataFim = semestre === 1 ? `${ano}-06-30` : `${ano}-12-31`;
+  const dataFim    = semestre === 1 ? `${ano}-06-30` : `${ano}-12-31`;
 
   try {
     const [resumoResult, porMesResult] = await Promise.all([
@@ -564,7 +661,7 @@ router.get('/semestral', async (req, res) => {
     ]);
 
     const r = resumoResult.rows[0];
-    res.json({
+    const payload = {
       semestre,
       ano,
       periodo: { inicio: dataInicio, fim: dataFim },
@@ -580,7 +677,21 @@ router.get('/semestral', async (req, res) => {
         canceladas:       parseInt(m.canceladas),
         salas_utilizadas: parseInt(m.salas_utilizadas),
       })),
-    });
+    };
+
+    if (formato === 'csv') {
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="relatorio-semestral-${semestre}s-${ano}.csv"`);
+      return res.send(csvSemestral(payload));
+    }
+
+    if (formato === 'pdf') {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="relatorio-semestral-${semestre}s-${ano}.pdf"`);
+      return pdfSemestral(res, payload);
+    }
+
+    res.json(payload);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
