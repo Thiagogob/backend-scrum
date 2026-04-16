@@ -375,6 +375,20 @@ Use **GET /api/reservas/horarios** para buscar essa tabela dinamicamente no fron
             },
           },
         },
+        LogEntry: {
+          type: 'object',
+          properties: {
+            id:                   { type: 'string', format: 'uuid' },
+            acao:                 { type: 'string', example: 'usuario.troca_perfil' },
+            entidade:             { type: 'string', enum: ['usuario', 'sala', 'reserva'] },
+            entidade_id:          { type: 'string', format: 'uuid' },
+            realizado_por:        { type: 'string', format: 'uuid' },
+            realizado_por_nome:   { type: 'string', example: 'Admin CPD' },
+            realizado_por_email:  { type: 'string', format: 'email' },
+            detalhes:             { type: 'object', description: 'Dados adicionais da ação (campos alterados, valores, etc.)' },
+            criado_em:            { type: 'string', format: 'date-time' },
+          },
+        },
         Error: {
           type: 'object',
           description: 'Estrutura padrão de erro retornada pela API.',
