@@ -11,6 +11,7 @@ const equipamentosRouter = require('./routes/equipamentos');
 const authRouter = require('./routes/auth');
 const reservasRouter = require('./routes/reservas');
 const logsRouter = require('./routes/logs');
+const relatoriosRouter = require('./routes/relatorios');
 const optionalAuthMiddleware = require('./middlewares/optionalAuthMiddleware');
 
 async function concluirReservasExpiradas() {
@@ -81,6 +82,7 @@ app.use('/api/usuarios', usuariosRouter);
 app.use('/api/equipamentos', equipamentosRouter);
 app.use('/api/reservas', reservasRouter);
 app.use('/api/logs', logsRouter);
+app.use('/api/relatorios', relatoriosRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {
