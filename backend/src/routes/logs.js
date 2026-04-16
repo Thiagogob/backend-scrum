@@ -7,83 +7,81 @@ const router = Router();
  * @swagger
  * tags:
  *   name: Logs
- *   description: Auditoria de ações realizadas no sistema
+ *   description: |
+ *     Trilha de auditoria — registra quem fez o quê e quando no sistema.
+ *
+ *     ---
+ *
+ *     ## Guia rápido
+ *
+ *     ### Todas as ações (últimas 100)
+ *     ```
+ *     GET /api/logs
+ *     ```
+ *
+ *     ### Filtrar por tipo de entidade
+ *     ```
+ *     GET /api/logs?entidade=usuario
+ *     GET /api/logs?entidade=sala
+ *     GET /api/logs?entidade=reserva
+ *     ```
+ *
+ *     ### Filtrar por ação específica
+ *     ```
+ *     GET /api/logs?acao=usuario.troca_perfil
+ *     GET /api/logs?acao=reserva.cancelamento_forcado
+ *     GET /api/logs?acao=sala.indisponibilidade
+ *     ```
+ *
+ *     ### Histórico de um registro específico
+ *     ```
+ *     GET /api/logs?entidade=usuario&entidade_id=<uuid>
+ *     GET /api/logs?entidade=reserva&entidade_id=<uuid>
+ *     ```
+ *
+ *     ### Tudo que um usuário/admin fez
+ *     ```
+ *     GET /api/logs?realizado_por=<uuid-do-admin>
+ *     ```
+ *
+ *     ### Filtrar por período
+ *     ```
+ *     GET /api/logs?data_inicio=2026-04-01&data_fim=2026-04-30
+ *     ```
+ *
+ *     ### Combinar filtros
+ *     ```
+ *     GET /api/logs?acao=reserva.cancelamento_forcado&realizado_por=<uuid>&data_inicio=2026-04-16&data_fim=2026-04-16
+ *     ```
+ *
+ *     ---
+ *
+ *     ## Ações registradas
+ *
+ *     | Ação | Quando é gerada |
+ *     |---|---|
+ *     | `usuario.criacao` | Novo usuário cadastrado |
+ *     | `usuario.edicao` | Dados alterados (nome, e-mail, ativo) |
+ *     | `usuario.troca_perfil` | Tipo alterado (professor ↔ admin_cpd) |
+ *     | `usuario.exclusao` | Usuário desativado (soft delete) |
+ *     | `sala.criacao` | Nova sala cadastrada |
+ *     | `sala.edicao` | Dados da sala alterados |
+ *     | `sala.indisponibilidade` | Sala desativada |
+ *     | `reserva.criacao` | Nova reserva criada |
+ *     | `reserva.edicao` | Reserva alterada manualmente |
+ *     | `reserva.cancelamento` | Cancelada pelo próprio titular |
+ *     | `reserva.cancelamento_forcado` | Cancelada por um administrador |
  */
 
 /**
  * @swagger
  * /api/logs:
  *   get:
- *     summary: Lista o histórico de ações do sistema
+ *     summary: Consulta o log de auditoria com filtros
  *     tags: [Logs]
  *     description: |
- *       Retorna o log de auditoria com todas as ações relevantes realizadas no sistema,
- *       ordenadas da mais recente para a mais antiga.
- *
- *       **Ações registradas:**
- *
- *       | Ação | Descrição |
- *       |---|---|
- *       | `usuario.criacao` | Novo usuário cadastrado |
- *       | `usuario.edicao` | Dados do usuário alterados (nome, e-mail, ativo) |
- *       | `usuario.troca_perfil` | Tipo/perfil do usuário alterado |
- *       | `usuario.exclusao` | Usuário desativado via soft delete |
- *       | `sala.criacao` | Nova sala cadastrada |
- *       | `sala.edicao` | Dados da sala alterados |
- *       | `sala.indisponibilidade` | Sala desativada |
- *       | `reserva.criacao` | Nova reserva criada |
- *       | `reserva.edicao` | Reserva alterada manualmente |
- *       | `reserva.cancelamento` | Reserva cancelada pelo próprio usuário |
- *       | `reserva.cancelamento_forcado` | Reserva cancelada por um administrador |
- *
- *       ---
- *
- *       **Exemplos de uso:**
- *
- *       **1. Todos os logs (últimas 100 ações)**
- *       ```
- *       GET /api/logs
- *       ```
- *
- *       **2. Apenas logs de usuários**
- *       ```
- *       GET /api/logs?entidade=usuario
- *       ```
- *
- *       **3. Todo o histórico de um usuário específico (quem fez ações nele)**
- *       ```
- *       GET /api/logs?entidade=usuario&entidade_id=c22e2050-b098-4a4d-8661-2229a2c02f2d
- *       ```
- *
- *       **4. Tudo que um admin específico fez**
- *       ```
- *       GET /api/logs?realizado_por=c22e2050-b098-4a4d-8661-2229a2c02f2d
- *       ```
- *
- *       **5. Cancelamentos forçados (admin cancelando reservas de professores)**
- *       ```
- *       GET /api/logs?acao=reserva.cancelamento_forcado
- *       ```
- *
- *       **6. Logs de salas num período específico**
- *       ```
- *       GET /api/logs?entidade=sala&data_inicio=2026-04-01&data_fim=2026-04-30
- *       ```
- *
- *       **7. Histórico completo de uma reserva específica**
- *       ```
- *       GET /api/logs?entidade=reserva&entidade_id=f3a1c4d0-1234-5678-abcd-000000000001
- *       ```
- *
- *       **8. Logs do dia de hoje com limite maior**
- *       ```
- *       GET /api/logs?data_inicio=2026-04-16&data_fim=2026-04-16&limit=500
- *       ```
- *
- *       **9. Combinando filtros — reservas canceladas hoje por um admin específico**
- *       ```
- *       GET /api/logs?acao=reserva.cancelamento_forcado&realizado_por=<uuid-admin>&data_inicio=2026-04-16&data_fim=2026-04-16
- *       ```
+ *       Retorna as entradas do log de auditoria, ordenadas da mais recente para a mais antiga.
+ *       Todos os filtros são opcionais e combináveis. Ver o guia de uso na seção **Logs** acima.
  *
  *     parameters:
  *       - in: query

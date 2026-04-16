@@ -71,16 +71,11 @@ const MESES = [
  *     summary: Relatório diário de utilização das salas
  *     tags: [Relatórios]
  *     description: |
- *       Retorna o resumo de ocupação de um dia específico e a lista completa de reservas desse dia.
- *
- *       **Como usar:**
- *       ```
- *       GET /api/relatorios/diario?data=2026-04-16
- *       ```
+ *       Retorna o resumo de ocupação de um dia e a lista completa de reservas.
  *
  *       **Resposta inclui:**
- *       - `resumo`: contagem de reservas por status e número de salas utilizadas
- *       - `reservas`: lista com dados de sala, professor, turno, aula e horário
+ *       - `resumo` — contagens por status (ativas, concluídas, canceladas) e salas utilizadas
+ *       - `reservas` — lista com sala, professor, turno, aula e horário
  *     parameters:
  *       - in: query
  *         name: data
@@ -185,17 +180,13 @@ router.get('/diario', async (req, res) => {
  *     summary: Relatório semanal de ocupação dos espaços
  *     tags: [Relatórios]
  *     description: |
- *       Retorna a ocupação dos espaços ao longo de um período (tipicamente uma semana).
- *
- *       **Como usar:**
- *       ```
- *       GET /api/relatorios/semanal?data_inicio=2026-04-14&data_fim=2026-04-20
- *       ```
+ *       Retorna a ocupação dos espaços ao longo de um período (tipicamente 7 dias).
+ *       `data_inicio` e `data_fim` são inclusivos.
  *
  *       **Resposta inclui:**
- *       - `resumo`: totais do período completo
- *       - `por_dia`: contagem de reservas e salas utilizadas para cada dia
- *       - `reservas`: lista completa de reservas no período
+ *       - `resumo` — totais do período completo
+ *       - `por_dia` — contagem de reservas e salas utilizadas para cada dia
+ *       - `reservas` — lista completa de reservas no período
  *     parameters:
  *       - in: query
  *         name: data_inicio
@@ -330,17 +321,12 @@ router.get('/semanal', async (req, res) => {
  *     summary: Relatório mensal de reservas e salas ocupadas
  *     tags: [Relatórios]
  *     description: |
- *       Retorna o total de reservas e salas utilizadas no mês, com ranking de salas e distribuição por dia.
- *
- *       **Como usar:**
- *       ```
- *       GET /api/relatorios/mensal?mes=4&ano=2026
- *       ```
+ *       Retorna totais do mês com ranking de salas e distribuição por dia.
  *
  *       **Resposta inclui:**
- *       - `resumo`: totais do mês (reservas, salas utilizadas, professores ativos)
- *       - `por_sala`: ranking das salas mais utilizadas no mês
- *       - `por_dia`: distribuição de reservas por dia
+ *       - `resumo` — total de reservas, canceladas, salas utilizadas e professores ativos
+ *       - `por_sala` — ranking das salas mais utilizadas (inclui salas com zero reservas)
+ *       - `por_dia` — distribuição de reservas por dia do mês
  *     parameters:
  *       - in: query
  *         name: mes
@@ -480,21 +466,13 @@ router.get('/mensal', async (req, res) => {
  *     summary: Relatório semestral de utilização agrupado por mês
  *     tags: [Relatórios]
  *     description: |
- *       Retorna a visão ampla de utilização dos espaços ao longo de um semestre, agrupada por mês.
+ *       Retorna a utilização dos espaços ao longo de um semestre, agrupada por mês.
  *
- *       **Como usar:**
- *       ```
- *       GET /api/relatorios/semestral?semestre=1&ano=2026
- *       GET /api/relatorios/semestral?semestre=2&ano=2026
- *       ```
- *
- *       **Períodos:**
- *       - `semestre=1` — Janeiro a Junho
- *       - `semestre=2` — Julho a Dezembro
+ *       **Períodos:** `semestre=1` → Janeiro–Junho · `semestre=2` → Julho–Dezembro
  *
  *       **Resposta inclui:**
- *       - `resumo`: totais do semestre completo
- *       - `por_mes`: totais mensais com nome do mês, reservas e salas utilizadas
+ *       - `resumo` — totais do semestre completo
+ *       - `por_mes` — totais mensais com nome do mês, reservas e salas utilizadas
  *     parameters:
  *       - in: query
  *         name: semestre

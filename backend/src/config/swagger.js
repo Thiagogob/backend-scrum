@@ -73,6 +73,15 @@ Use **GET /api/reservas/horarios** para buscar essa tabela dinamicamente no fron
 - Salas e usuários usam **soft delete** — ao deletar, o registro é apenas desativado (\`ativo = false\`), não removido do banco
       `,
     },
+    tags: [
+      { name: 'Auth' },
+      { name: 'Usuários' },
+      { name: 'Salas' },
+      { name: 'Equipamentos' },
+      { name: 'Reservas' },
+      { name: 'Relatórios' },
+      { name: 'Logs' },
+    ],
     servers: [
       {
         url: 'https://backend-scrum-production.up.railway.app',
