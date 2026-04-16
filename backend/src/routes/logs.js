@@ -38,6 +38,61 @@ const router = Router();
  *       | `reserva.cancelamento` | Reserva cancelada pelo próprio usuário |
  *       | `reserva.cancelamento_forcado` | Reserva cancelada por um administrador |
  *
+ *       ---
+ *
+ *       **Exemplos de uso:**
+ *
+ *       **1. Todos os logs (últimas 100 ações)**
+ *       ```
+ *       GET /api/logs
+ *       ```
+ *
+ *       **2. Apenas logs de usuários**
+ *       ```
+ *       GET /api/logs?entidade=usuario
+ *       ```
+ *
+ *       **3. Apenas bloqueios e desbloqueios**
+ *       ```
+ *       GET /api/logs?acao=usuario.bloqueio
+ *       GET /api/logs?acao=usuario.desbloqueio
+ *       ```
+ *
+ *       **4. Todo o histórico de um usuário específico (quem fez ações nele)**
+ *       ```
+ *       GET /api/logs?entidade=usuario&entidade_id=c22e2050-b098-4a4d-8661-2229a2c02f2d
+ *       ```
+ *
+ *       **5. Tudo que um admin específico fez**
+ *       ```
+ *       GET /api/logs?realizado_por=c22e2050-b098-4a4d-8661-2229a2c02f2d
+ *       ```
+ *
+ *       **6. Cancelamentos forçados (admin cancelando reservas de professores)**
+ *       ```
+ *       GET /api/logs?acao=reserva.cancelamento_forcado
+ *       ```
+ *
+ *       **7. Logs de salas num período específico**
+ *       ```
+ *       GET /api/logs?entidade=sala&data_inicio=2026-04-01&data_fim=2026-04-30
+ *       ```
+ *
+ *       **8. Histórico completo de uma reserva específica**
+ *       ```
+ *       GET /api/logs?entidade=reserva&entidade_id=f3a1c4d0-1234-5678-abcd-000000000001
+ *       ```
+ *
+ *       **9. Logs do dia de hoje com limite maior**
+ *       ```
+ *       GET /api/logs?data_inicio=2026-04-16&data_fim=2026-04-16&limit=500
+ *       ```
+ *
+ *       **10. Combinando filtros — reservas canceladas hoje por um admin específico**
+ *       ```
+ *       GET /api/logs?acao=reserva.cancelamento_forcado&realizado_por=<uuid-admin>&data_inicio=2026-04-16&data_fim=2026-04-16
+ *       ```
+ *
  *     parameters:
  *       - in: query
  *         name: entidade
@@ -49,7 +104,21 @@ const router = Router();
  *         name: acao
  *         schema:
  *           type: string
- *         description: 'Filtra pela ação específica. Ex: "usuario.bloqueio"'
+ *           enum:
+ *             - usuario.criacao
+ *             - usuario.edicao
+ *             - usuario.bloqueio
+ *             - usuario.desbloqueio
+ *             - usuario.troca_perfil
+ *             - usuario.exclusao
+ *             - sala.criacao
+ *             - sala.edicao
+ *             - sala.indisponibilidade
+ *             - reserva.criacao
+ *             - reserva.edicao
+ *             - reserva.cancelamento
+ *             - reserva.cancelamento_forcado
+ *         description: Filtra pela ação específica
  *       - in: query
  *         name: entidade_id
  *         schema:
@@ -61,19 +130,19 @@ const router = Router();
  *         schema:
  *           type: string
  *           format: uuid
- *         description: Filtra pelas ações de um usuário específico
+ *         description: Filtra pelas ações realizadas por um usuário específico
  *       - in: query
  *         name: data_inicio
  *         schema:
  *           type: string
  *           format: date
- *         description: 'Data de início do filtro (YYYY-MM-DD)'
+ *         description: "Data de início do filtro (YYYY-MM-DD). Ex: 2026-04-01"
  *       - in: query
  *         name: data_fim
  *         schema:
  *           type: string
  *           format: date
- *         description: 'Data de fim do filtro (YYYY-MM-DD, inclusivo)'
+ *         description: "Data de fim do filtro (YYYY-MM-DD, inclusivo). Ex: 2026-04-30"
  *       - in: query
  *         name: limit
  *         schema:
@@ -81,10 +150,10 @@ const router = Router();
  *           minimum: 1
  *           maximum: 500
  *           default: 100
- *         description: Máximo de registros retornados
+ *         description: Máximo de registros retornados (padrão 100, máx 500)
  *     responses:
  *       200:
- *         description: Lista de logs retornada com sucesso
+ *         description: Lista de logs retornada com sucesso, ordenada da ação mais recente para a mais antiga
  *         content:
  *           application/json:
  *             schema:
@@ -107,27 +176,75 @@ const router = Router();
  *                     format: uuid
  *                   realizado_por_nome:
  *                     type: string
- *                     description: Nome do usuário que realizou a ação (JOIN automático)
+ *                     description: Nome do usuário que realizou a ação (JOIN automático com a tabela usuario)
  *                   realizado_por_email:
  *                     type: string
  *                   detalhes:
  *                     type: object
- *                     description: Dados adicionais da ação (campos alterados, valores, etc.)
+ *                     description: Dados adicionais da ação (campos alterados, valores novos, etc.)
  *                   criado_em:
  *                     type: string
  *                     format: date-time
- *             example:
- *               - id: "uuid-do-log"
- *                 acao: "usuario.bloqueio"
- *                 entidade: "usuario"
- *                 entidade_id: "uuid-do-usuario"
- *                 realizado_por: "uuid-do-admin"
- *                 realizado_por_nome: "Admin CPD"
- *                 realizado_por_email: "admin@uniuv.edu.br"
- *                 detalhes: { campos_alterados: ["ativo"], ativo_novo: false }
- *                 criado_em: "2026-04-16T14:30:00.000Z"
- *       400:
- *         description: Parâmetros inválidos
+ *             examples:
+ *               bloqueio_usuario:
+ *                 summary: Bloqueio de usuário
+ *                 value:
+ *                   - id: "a1b2c3d4-0000-0000-0000-000000000001"
+ *                     acao: "usuario.bloqueio"
+ *                     entidade: "usuario"
+ *                     entidade_id: "c22e2050-b098-4a4d-8661-2229a2c02f2d"
+ *                     realizado_por: "f3a1c4d0-1234-5678-abcd-000000000001"
+ *                     realizado_por_nome: "Admin CPD"
+ *                     realizado_por_email: "admin@uniuv.edu.br"
+ *                     detalhes:
+ *                       campos_alterados: ["ativo"]
+ *                       ativo_novo: false
+ *                     criado_em: "2026-04-16T14:30:00.000Z"
+ *               troca_perfil:
+ *                 summary: Troca de perfil de professor para admin
+ *                 value:
+ *                   - id: "a1b2c3d4-0000-0000-0000-000000000002"
+ *                     acao: "usuario.troca_perfil"
+ *                     entidade: "usuario"
+ *                     entidade_id: "c22e2050-b098-4a4d-8661-2229a2c02f2d"
+ *                     realizado_por: "f3a1c4d0-1234-5678-abcd-000000000001"
+ *                     realizado_por_nome: "Admin CPD"
+ *                     realizado_por_email: "admin@uniuv.edu.br"
+ *                     detalhes:
+ *                       campos_alterados: ["tipo"]
+ *                       tipo_novo: "admin_cpd"
+ *                     criado_em: "2026-04-16T15:00:00.000Z"
+ *               cancelamento_forcado:
+ *                 summary: Cancelamento forçado de reserva por admin
+ *                 value:
+ *                   - id: "a1b2c3d4-0000-0000-0000-000000000003"
+ *                     acao: "reserva.cancelamento_forcado"
+ *                     entidade: "reserva"
+ *                     entidade_id: "e9f0a1b2-0000-0000-0000-000000000099"
+ *                     realizado_por: "f3a1c4d0-1234-5678-abcd-000000000001"
+ *                     realizado_por_nome: "Admin CPD"
+ *                     realizado_por_email: "admin@uniuv.edu.br"
+ *                     detalhes:
+ *                       cancelado_por: "f3a1c4d0-1234-5678-abcd-000000000001"
+ *                       usuario_id_titular: "c22e2050-b098-4a4d-8661-2229a2c02f2d"
+ *                       data_reserva: "2026-04-18"
+ *                       turno: "matutino"
+ *                       sala_id: "d7e8f900-0000-0000-0000-000000000010"
+ *                     criado_em: "2026-04-16T16:45:00.000Z"
+ *               sala_indisponivel:
+ *                 summary: Sala marcada como indisponível
+ *                 value:
+ *                   - id: "a1b2c3d4-0000-0000-0000-000000000004"
+ *                     acao: "sala.indisponibilidade"
+ *                     entidade: "sala"
+ *                     entidade_id: "d7e8f900-0000-0000-0000-000000000010"
+ *                     realizado_por: "f3a1c4d0-1234-5678-abcd-000000000001"
+ *                     realizado_por_nome: "Admin CPD"
+ *                     realizado_por_email: "admin@uniuv.edu.br"
+ *                     detalhes:
+ *                       nome_numero: "B-102"
+ *                       bloco: "Bloco B"
+ *                     criado_em: "2026-04-16T09:00:00.000Z"
  *       500:
  *         description: Erro interno do servidor
  */
