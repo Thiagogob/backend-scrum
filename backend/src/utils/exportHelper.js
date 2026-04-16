@@ -277,11 +277,15 @@ function pdfFooter(doc) {
   const range = doc.bufferedPageRange();
   for (let i = 0; i < range.count; i++) {
     doc.switchToPage(range.start + i);
-    const fy = doc.page.height - 28;
-    doc.fillColor(C.border).rect(ML, fy - 6, CW, 0.5).fill();
+    // Must stay inside the usable area (page.height - margins.bottom).
+    // Placing text below that threshold causes pdfkit to silently overflow
+    // onto new blank pages — one per text() call.
+    const fy = doc.page.height - doc.page.margins.bottom - 18;
+    doc.fillColor(C.border).rect(ML, fy - 4, CW, 0.5).fill();
     doc.fillColor(C.muted).fontSize(7.5).font('Helvetica')
-      .text(`Gerado em ${geradoEm}`, ML, fy, { width: CW })
-      .text(`Página ${i + 1} de ${range.count}`, ML, fy, { width: CW, align: 'right' });
+      .text(`Gerado em ${geradoEm}`, ML, fy, { width: CW, lineBreak: false });
+    doc.fillColor(C.muted).fontSize(7.5).font('Helvetica')
+      .text(`Página ${i + 1} de ${range.count}`, ML, fy, { width: CW, align: 'right', lineBreak: false });
   }
 }
 
