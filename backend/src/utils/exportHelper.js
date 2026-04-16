@@ -15,11 +15,18 @@ const C = {
   text:      '#1a202c',
 };
 
-// ─── Date helper ────────────────────────────────────────────────────────────
+// ─── Date / time helpers ─────────────────────────────────────────────────────
 function fmtDate(v) {
   if (v === null || v === undefined) return '';
   const s = v instanceof Date ? v.toISOString() : String(v);
   return s.length > 10 ? s.slice(0, 10) : s;
+}
+
+/** Strips seconds: "08:00:00" → "08:00" */
+function fmtTime(v) {
+  if (!v) return '';
+  const s = String(v);
+  return s.length >= 5 ? s.slice(0, 5) : s;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -64,7 +71,7 @@ function csvDiario({ data, resumo, reservas }) {
         ['Sala', 'Bloco', 'Tipo', 'Turno', 'Aula', 'Início', 'Fim', 'Status', 'Professor', 'Disciplina'],
         ...reservas.map(r => [
           r.nome_numero, r.bloco, r.tipo_sala, r.turno, r.aula_numero,
-          r.hora_inicio, r.hora_fim, r.status, r.usuario_nome, r.disciplina || '',
+          fmtTime(r.hora_inicio), fmtTime(r.hora_fim), r.status, r.usuario_nome, r.disciplina || '',
         ]),
       ],
     },
@@ -93,7 +100,7 @@ function csvSemanal({ data_inicio, data_fim, resumo, por_dia, reservas }) {
         ['Data', 'Sala', 'Bloco', 'Tipo', 'Turno', 'Aula', 'Início', 'Fim', 'Status', 'Professor', 'Disciplina'],
         ...reservas.map(r => [
           fmtDate(r.data), r.nome_numero, r.bloco, r.tipo_sala, r.turno, r.aula_numero,
-          r.hora_inicio, r.hora_fim, r.status, r.usuario_nome, r.disciplina || '',
+          fmtTime(r.hora_inicio), fmtTime(r.hora_fim), r.status, r.usuario_nome, r.disciplina || '',
         ]),
       ],
     },
@@ -309,7 +316,7 @@ function pdfDiario(res, { data, resumo, reservas }) {
     { label: 'Disciplina', width: 72 },
   ], reservas.map(r => [
     r.nome_numero, r.bloco, r.turno, r.aula_numero,
-    r.hora_inicio, r.hora_fim, r.status, r.usuario_nome, r.disciplina || '—',
+    fmtTime(r.hora_inicio), fmtTime(r.hora_fim), r.status, r.usuario_nome, r.disciplina || '—',
   ]));
 
   pdfFooter(doc);
@@ -356,7 +363,7 @@ function pdfSemanal(res, { data_inicio, data_fim, resumo, por_dia, reservas }) {
     { label: 'Professor', width: 123 },
   ], reservas.map(r => [
     fmtDate(r.data), r.nome_numero, r.bloco, r.turno, r.aula_numero,
-    r.hora_inicio, r.hora_fim, r.status, r.usuario_nome,
+    fmtTime(r.hora_inicio), fmtTime(r.hora_fim), r.status, r.usuario_nome,
   ]));
 
   pdfFooter(doc);
