@@ -113,7 +113,12 @@ const MESES = [
  *           `csv` — planilha compatível com Excel · `pdf` — documento A4 formatado
  *     responses:
  *       200:
- *         description: Relatório diário gerado com sucesso
+ *         description: |
+ *           Relatório diário gerado com sucesso.
+ *           O tipo de conteúdo varia conforme o parâmetro `formato`:
+ *           - **sem `formato`** → `application/json`
+ *           - **`formato=pdf`** → `application/pdf` (download direto)
+ *           - **`formato=csv`** → `text/csv` (download direto)
  *         content:
  *           application/json:
  *             example:
@@ -136,6 +141,16 @@ const MESES = [
  *                   status: "ativa"
  *                   disciplina: "Banco de Dados"
  *                   usuario_nome: "Prof. João Silva"
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *               description: "Documento PDF formatado (retornado quando ?formato=pdf)"
+ *           text/csv:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *               description: "Planilha CSV compatível com Excel (retornada quando ?formato=csv)"
  *       400:
  *         description: Parâmetro obrigatório ausente
  *         content:
@@ -192,26 +207,16 @@ router.get('/diario', async (req, res) => {
 
     if (formato === 'csv') {
       const conteudo = csvDiario(payload);
-      return res.json({
-        ...payload,
-        arquivo: {
-          formato: 'csv',
-          nome: `relatorio-diario-${data}.csv`,
-          conteudo_base64: Buffer.from(conteudo).toString('base64'),
-        },
-      });
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="relatorio-diario-${data}.csv"`);
+      return res.send(conteudo);
     }
 
     if (formato === 'pdf') {
       const buffer = await pdfDiario(payload);
-      return res.json({
-        ...payload,
-        arquivo: {
-          formato: 'pdf',
-          nome: `relatorio-diario-${data}.pdf`,
-          conteudo_base64: buffer.toString('base64'),
-        },
-      });
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="relatorio-diario-${data}.pdf"`);
+      return res.send(buffer);
     }
 
     res.json(payload);
@@ -267,7 +272,12 @@ router.get('/diario', async (req, res) => {
  *           `csv` — planilha compatível com Excel · `pdf` — documento A4 formatado
  *     responses:
  *       200:
- *         description: Relatório semanal gerado com sucesso
+ *         description: |
+ *           Relatório semanal gerado com sucesso.
+ *           O tipo de conteúdo varia conforme o parâmetro `formato`:
+ *           - **sem `formato`** → `application/json`
+ *           - **`formato=pdf`** → `application/pdf` (download direto)
+ *           - **`formato=csv`** → `text/csv` (download direto)
  *         content:
  *           application/json:
  *             example:
@@ -296,6 +306,16 @@ router.get('/diario', async (req, res) => {
  *                   hora_fim: "08:50"
  *                   status: "ativa"
  *                   usuario_nome: "Prof. João Silva"
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *               description: "Documento PDF formatado (retornado quando ?formato=pdf)"
+ *           text/csv:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *               description: "Planilha CSV compatível com Excel (retornada quando ?formato=csv)"
  *       400:
  *         description: Parâmetros obrigatórios ausentes
  *         content:
@@ -369,26 +389,16 @@ router.get('/semanal', async (req, res) => {
 
     if (formato === 'csv') {
       const conteudo = csvSemanal(payload);
-      return res.json({
-        ...payload,
-        arquivo: {
-          formato: 'csv',
-          nome: `relatorio-semanal-${data_inicio}-${data_fim}.csv`,
-          conteudo_base64: Buffer.from(conteudo).toString('base64'),
-        },
-      });
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="relatorio-semanal-${data_inicio}-${data_fim}.csv"`);
+      return res.send(conteudo);
     }
 
     if (formato === 'pdf') {
       const buffer = await pdfSemanal(payload);
-      return res.json({
-        ...payload,
-        arquivo: {
-          formato: 'pdf',
-          nome: `relatorio-semanal-${data_inicio}-${data_fim}.pdf`,
-          conteudo_base64: buffer.toString('base64'),
-        },
-      });
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="relatorio-semanal-${data_inicio}-${data_fim}.pdf"`);
+      return res.send(buffer);
     }
 
     res.json(payload);
@@ -443,7 +453,12 @@ router.get('/semanal', async (req, res) => {
  *           `csv` — planilha compatível com Excel · `pdf` — documento A4 formatado
  *     responses:
  *       200:
- *         description: Relatório mensal gerado com sucesso
+ *         description: |
+ *           Relatório mensal gerado com sucesso.
+ *           O tipo de conteúdo varia conforme o parâmetro `formato`:
+ *           - **sem `formato`** → `application/json`
+ *           - **`formato=pdf`** → `application/pdf` (download direto)
+ *           - **`formato=csv`** → `text/csv` (download direto)
  *         content:
  *           application/json:
  *             example:
@@ -466,6 +481,16 @@ router.get('/semanal', async (req, res) => {
  *                   total_reservas: 10
  *                   canceladas: 1
  *                   salas_utilizadas: 6
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *               description: "Documento PDF formatado (retornado quando ?formato=pdf)"
+ *           text/csv:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *               description: "Planilha CSV compatível com Excel (retornada quando ?formato=csv)"
  *       400:
  *         description: Parâmetros obrigatórios ausentes ou inválidos
  *         content:
@@ -551,26 +576,16 @@ router.get('/mensal', async (req, res) => {
 
     if (formato === 'csv') {
       const conteudo = csvMensal(payload);
-      return res.json({
-        ...payload,
-        arquivo: {
-          formato: 'csv',
-          nome: `relatorio-mensal-${String(mes).padStart(2, '0')}-${ano}.csv`,
-          conteudo_base64: Buffer.from(conteudo).toString('base64'),
-        },
-      });
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="relatorio-mensal-${String(mes).padStart(2, '0')}-${ano}.csv"`);
+      return res.send(conteudo);
     }
 
     if (formato === 'pdf') {
       const buffer = await pdfMensal(payload);
-      return res.json({
-        ...payload,
-        arquivo: {
-          formato: 'pdf',
-          nome: `relatorio-mensal-${String(mes).padStart(2, '0')}-${ano}.pdf`,
-          conteudo_base64: buffer.toString('base64'),
-        },
-      });
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="relatorio-mensal-${String(mes).padStart(2, '0')}-${ano}.pdf"`);
+      return res.send(buffer);
     }
 
     res.json(payload);
@@ -625,7 +640,12 @@ router.get('/mensal', async (req, res) => {
  *           `csv` — planilha compatível com Excel · `pdf` — documento A4 formatado
  *     responses:
  *       200:
- *         description: Relatório semestral gerado com sucesso
+ *         description: |
+ *           Relatório semestral gerado com sucesso.
+ *           O tipo de conteúdo varia conforme o parâmetro `formato`:
+ *           - **sem `formato`** → `application/json`
+ *           - **`formato=pdf`** → `application/pdf` (download direto)
+ *           - **`formato=csv`** → `text/csv` (download direto)
  *         content:
  *           application/json:
  *             example:
@@ -649,6 +669,16 @@ router.get('/mensal', async (req, res) => {
  *                   total_reservas: 140
  *                   canceladas: 8
  *                   salas_utilizadas: 15
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *               description: "Documento PDF formatado (retornado quando ?formato=pdf)"
+ *           text/csv:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *               description: "Planilha CSV compatível com Excel (retornada quando ?formato=csv)"
  *       400:
  *         description: Parâmetros obrigatórios ausentes ou inválidos
  *         content:
@@ -717,26 +747,16 @@ router.get('/semestral', async (req, res) => {
 
     if (formato === 'csv') {
       const conteudo = csvSemestral(payload);
-      return res.json({
-        ...payload,
-        arquivo: {
-          formato: 'csv',
-          nome: `relatorio-semestral-${semestre}s-${ano}.csv`,
-          conteudo_base64: Buffer.from(conteudo).toString('base64'),
-        },
-      });
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="relatorio-semestral-${semestre}s-${ano}.csv"`);
+      return res.send(conteudo);
     }
 
     if (formato === 'pdf') {
       const buffer = await pdfSemestral(payload);
-      return res.json({
-        ...payload,
-        arquivo: {
-          formato: 'pdf',
-          nome: `relatorio-semestral-${semestre}s-${ano}.pdf`,
-          conteudo_base64: buffer.toString('base64'),
-        },
-      });
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="relatorio-semestral-${semestre}s-${ano}.pdf"`);
+      return res.send(buffer);
     }
 
     res.json(payload);
