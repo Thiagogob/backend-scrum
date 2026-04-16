@@ -417,9 +417,7 @@ router.put('/:id?', async (req, res) => {
 
     // Determina a ação mais específica para o log
     let acaoLog;
-    if (ativo !== undefined) {
-      acaoLog = ativo ? 'usuario.desbloqueio' : 'usuario.bloqueio';
-    } else if (tipo !== undefined) {
+    if (tipo !== undefined) {
       acaoLog = 'usuario.troca_perfil';
     } else {
       acaoLog = 'usuario.edicao';

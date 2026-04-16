@@ -25,9 +25,7 @@ const router = Router();
  *       | Ação | Descrição |
  *       |---|---|
  *       | `usuario.criacao` | Novo usuário cadastrado |
- *       | `usuario.edicao` | Dados do usuário alterados (nome, e-mail) |
- *       | `usuario.bloqueio` | Usuário desativado (`ativo = false`) |
- *       | `usuario.desbloqueio` | Usuário reativado (`ativo = true`) |
+ *       | `usuario.edicao` | Dados do usuário alterados (nome, e-mail, ativo) |
  *       | `usuario.troca_perfil` | Tipo/perfil do usuário alterado |
  *       | `usuario.exclusao` | Usuário desativado via soft delete |
  *       | `sala.criacao` | Nova sala cadastrada |
@@ -52,43 +50,37 @@ const router = Router();
  *       GET /api/logs?entidade=usuario
  *       ```
  *
- *       **3. Apenas bloqueios e desbloqueios**
- *       ```
- *       GET /api/logs?acao=usuario.bloqueio
- *       GET /api/logs?acao=usuario.desbloqueio
- *       ```
- *
- *       **4. Todo o histórico de um usuário específico (quem fez ações nele)**
+ *       **3. Todo o histórico de um usuário específico (quem fez ações nele)**
  *       ```
  *       GET /api/logs?entidade=usuario&entidade_id=c22e2050-b098-4a4d-8661-2229a2c02f2d
  *       ```
  *
- *       **5. Tudo que um admin específico fez**
+ *       **4. Tudo que um admin específico fez**
  *       ```
  *       GET /api/logs?realizado_por=c22e2050-b098-4a4d-8661-2229a2c02f2d
  *       ```
  *
- *       **6. Cancelamentos forçados (admin cancelando reservas de professores)**
+ *       **5. Cancelamentos forçados (admin cancelando reservas de professores)**
  *       ```
  *       GET /api/logs?acao=reserva.cancelamento_forcado
  *       ```
  *
- *       **7. Logs de salas num período específico**
+ *       **6. Logs de salas num período específico**
  *       ```
  *       GET /api/logs?entidade=sala&data_inicio=2026-04-01&data_fim=2026-04-30
  *       ```
  *
- *       **8. Histórico completo de uma reserva específica**
+ *       **7. Histórico completo de uma reserva específica**
  *       ```
  *       GET /api/logs?entidade=reserva&entidade_id=f3a1c4d0-1234-5678-abcd-000000000001
  *       ```
  *
- *       **9. Logs do dia de hoje com limite maior**
+ *       **8. Logs do dia de hoje com limite maior**
  *       ```
  *       GET /api/logs?data_inicio=2026-04-16&data_fim=2026-04-16&limit=500
  *       ```
  *
- *       **10. Combinando filtros — reservas canceladas hoje por um admin específico**
+ *       **9. Combinando filtros — reservas canceladas hoje por um admin específico**
  *       ```
  *       GET /api/logs?acao=reserva.cancelamento_forcado&realizado_por=<uuid-admin>&data_inicio=2026-04-16&data_fim=2026-04-16
  *       ```
@@ -107,8 +99,6 @@ const router = Router();
  *           enum:
  *             - usuario.criacao
  *             - usuario.edicao
- *             - usuario.bloqueio
- *             - usuario.desbloqueio
  *             - usuario.troca_perfil
  *             - usuario.exclusao
  *             - sala.criacao
@@ -186,20 +176,6 @@ const router = Router();
  *                     type: string
  *                     format: date-time
  *             examples:
- *               bloqueio_usuario:
- *                 summary: Bloqueio de usuário
- *                 value:
- *                   - id: "a1b2c3d4-0000-0000-0000-000000000001"
- *                     acao: "usuario.bloqueio"
- *                     entidade: "usuario"
- *                     entidade_id: "c22e2050-b098-4a4d-8661-2229a2c02f2d"
- *                     realizado_por: "f3a1c4d0-1234-5678-abcd-000000000001"
- *                     realizado_por_nome: "Admin CPD"
- *                     realizado_por_email: "admin@uniuv.edu.br"
- *                     detalhes:
- *                       campos_alterados: ["ativo"]
- *                       ativo_novo: false
- *                     criado_em: "2026-04-16T14:30:00.000Z"
  *               troca_perfil:
  *                 summary: Troca de perfil de professor para admin
  *                 value:

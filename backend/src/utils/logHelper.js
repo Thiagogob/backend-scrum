@@ -4,7 +4,7 @@
  *
  * @param {object} pool     - Instância do pool PostgreSQL
  * @param {object} entrada
- * @param {string} entrada.acao          - Ex: 'usuario.bloqueio', 'reserva.cancelamento_forcado'
+ * @param {string} entrada.acao          - Ex: 'usuario.edicao', 'reserva.cancelamento_forcado'
  * @param {string} entrada.entidade      - 'usuario' | 'sala' | 'reserva'
  * @param {string} [entrada.entidade_id] - UUID da entidade afetada
  * @param {string} [entrada.realizado_por] - UUID do usuário que realizou a ação
