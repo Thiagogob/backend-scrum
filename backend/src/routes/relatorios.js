@@ -191,15 +191,27 @@ router.get('/diario', async (req, res) => {
     };
 
     if (formato === 'csv') {
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="relatorio-diario-${data}.csv"`);
-      return res.send(csvDiario(payload));
+      const conteudo = csvDiario(payload);
+      return res.json({
+        ...payload,
+        arquivo: {
+          formato: 'csv',
+          nome: `relatorio-diario-${data}.csv`,
+          conteudo_base64: Buffer.from(conteudo).toString('base64'),
+        },
+      });
     }
 
     if (formato === 'pdf') {
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="relatorio-diario-${data}.pdf"`);
-      return pdfDiario(res, payload);
+      const buffer = await pdfDiario(payload);
+      return res.json({
+        ...payload,
+        arquivo: {
+          formato: 'pdf',
+          nome: `relatorio-diario-${data}.pdf`,
+          conteudo_base64: buffer.toString('base64'),
+        },
+      });
     }
 
     res.json(payload);
@@ -356,15 +368,27 @@ router.get('/semanal', async (req, res) => {
     };
 
     if (formato === 'csv') {
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="relatorio-semanal-${data_inicio}-${data_fim}.csv"`);
-      return res.send(csvSemanal(payload));
+      const conteudo = csvSemanal(payload);
+      return res.json({
+        ...payload,
+        arquivo: {
+          formato: 'csv',
+          nome: `relatorio-semanal-${data_inicio}-${data_fim}.csv`,
+          conteudo_base64: Buffer.from(conteudo).toString('base64'),
+        },
+      });
     }
 
     if (formato === 'pdf') {
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="relatorio-semanal-${data_inicio}-${data_fim}.pdf"`);
-      return pdfSemanal(res, payload);
+      const buffer = await pdfSemanal(payload);
+      return res.json({
+        ...payload,
+        arquivo: {
+          formato: 'pdf',
+          nome: `relatorio-semanal-${data_inicio}-${data_fim}.pdf`,
+          conteudo_base64: buffer.toString('base64'),
+        },
+      });
     }
 
     res.json(payload);
@@ -526,15 +550,27 @@ router.get('/mensal', async (req, res) => {
     };
 
     if (formato === 'csv') {
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="relatorio-mensal-${String(mes).padStart(2,'0')}-${ano}.csv"`);
-      return res.send(csvMensal(payload));
+      const conteudo = csvMensal(payload);
+      return res.json({
+        ...payload,
+        arquivo: {
+          formato: 'csv',
+          nome: `relatorio-mensal-${String(mes).padStart(2, '0')}-${ano}.csv`,
+          conteudo_base64: Buffer.from(conteudo).toString('base64'),
+        },
+      });
     }
 
     if (formato === 'pdf') {
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="relatorio-mensal-${String(mes).padStart(2,'0')}-${ano}.pdf"`);
-      return pdfMensal(res, payload);
+      const buffer = await pdfMensal(payload);
+      return res.json({
+        ...payload,
+        arquivo: {
+          formato: 'pdf',
+          nome: `relatorio-mensal-${String(mes).padStart(2, '0')}-${ano}.pdf`,
+          conteudo_base64: buffer.toString('base64'),
+        },
+      });
     }
 
     res.json(payload);
@@ -680,15 +716,27 @@ router.get('/semestral', async (req, res) => {
     };
 
     if (formato === 'csv') {
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="relatorio-semestral-${semestre}s-${ano}.csv"`);
-      return res.send(csvSemestral(payload));
+      const conteudo = csvSemestral(payload);
+      return res.json({
+        ...payload,
+        arquivo: {
+          formato: 'csv',
+          nome: `relatorio-semestral-${semestre}s-${ano}.csv`,
+          conteudo_base64: Buffer.from(conteudo).toString('base64'),
+        },
+      });
     }
 
     if (formato === 'pdf') {
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="relatorio-semestral-${semestre}s-${ano}.pdf"`);
-      return pdfSemestral(res, payload);
+      const buffer = await pdfSemestral(payload);
+      return res.json({
+        ...payload,
+        arquivo: {
+          formato: 'pdf',
+          nome: `relatorio-semestral-${semestre}s-${ano}.pdf`,
+          conteudo_base64: buffer.toString('base64'),
+        },
+      });
     }
 
     res.json(payload);

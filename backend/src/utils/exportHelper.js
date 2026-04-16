@@ -290,155 +290,134 @@ function pdfFooter(doc) {
 }
 
 // ─── PDF per report ──────────────────────────────────────────────────────────
+// Each function renders the PDF into an in-memory Buffer (no streaming to res).
+// The caller base64-encodes it and embeds it in the JSON response alongside
+// the original data payload, so the frontend gets both at once.
 
-function pdfDiario(res, { data, resumo, reservas }) {
-  const doc = newPdf();
-  doc.pipe(res);
-  doc.addPage();
-
-  let y = pdfHeader(doc, 'Relatório Diário', `Data: ${fmtDate(data)}`);
-  y += 14;
-
-  y = pdfMetrics(doc, y, [
-    { label: 'Total Reservas',   value: resumo.total_reservas },
-    { label: 'Ativas',           value: resumo.ativas },
-    { label: 'Concluídas',       value: resumo.concluidas },
-    { label: 'Canceladas',       value: resumo.canceladas },
-    { label: 'Salas Utilizadas', value: resumo.salas_utilizadas },
-  ]);
-
-  y = pdfSection(doc, y, 'Reservas do Dia');
-  pdfTable(doc, y, [
-    { label: 'Sala',       width: 55 },
-    { label: 'Bloco',      width: 65 },
-    { label: 'Turno',      width: 60 },
-    { label: 'Aula',       width: 30, align: 'center' },
-    { label: 'Início',     width: 38, align: 'center' },
-    { label: 'Fim',        width: 38, align: 'center' },
-    { label: 'Status',     width: 57 },
-    { label: 'Professor',  width: 100 },
-    { label: 'Disciplina', width: 72 },
-  ], reservas.map(r => [
-    r.nome_numero, r.bloco, r.turno, r.aula_numero,
-    fmtTime(r.hora_inicio), fmtTime(r.hora_fim), r.status, r.usuario_nome, r.disciplina || '—',
-  ]));
-
-  pdfFooter(doc);
-  doc.end();
+function buildPdfBuffer(setupFn) {
+  return new Promise((resolve, reject) => {
+    const doc = newPdf();
+    const chunks = [];
+    doc.on('data', chunk => chunks.push(chunk));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+    doc.addPage();
+    setupFn(doc);
+    pdfFooter(doc);
+    doc.end();
+  });
 }
 
-function pdfSemanal(res, { data_inicio, data_fim, resumo, por_dia, reservas }) {
-  const doc = newPdf();
-  doc.pipe(res);
-  doc.addPage();
-
-  let y = pdfHeader(
-    doc,
-    'Relatório Semanal',
-    `Período: ${fmtDate(data_inicio)} a ${fmtDate(data_fim)}`
-  );
-  y += 14;
-
-  y = pdfMetrics(doc, y, [
-    { label: 'Total Reservas',   value: resumo.total_reservas },
-    { label: 'Canceladas',       value: resumo.canceladas },
-    { label: 'Salas Utilizadas', value: resumo.salas_utilizadas },
-  ]);
-
-  y = pdfSection(doc, y, 'Ocupação por Dia');
-  y = pdfTable(doc, y, [
-    { label: 'Data',             width: 120 },
-    { label: 'Total Reservas',   width: 135, align: 'center' },
-    { label: 'Canceladas',       width: 125, align: 'center' },
-    { label: 'Salas Utilizadas', width: 135, align: 'center' },
-  ], por_dia.map(d => [fmtDate(d.data), d.total_reservas, d.canceladas, d.salas_utilizadas]));
-
-  y += 6;
-  y = pdfSection(doc, y, 'Reservas do Período');
-  pdfTable(doc, y, [
-    { label: 'Data',      width: 68 },
-    { label: 'Sala',      width: 52 },
-    { label: 'Bloco',     width: 62 },
-    { label: 'Turno',     width: 58 },
-    { label: 'Aula',      width: 28, align: 'center' },
-    { label: 'Início',    width: 36, align: 'center' },
-    { label: 'Fim',       width: 36, align: 'center' },
-    { label: 'Status',    width: 52 },
-    { label: 'Professor', width: 123 },
-  ], reservas.map(r => [
-    fmtDate(r.data), r.nome_numero, r.bloco, r.turno, r.aula_numero,
-    fmtTime(r.hora_inicio), fmtTime(r.hora_fim), r.status, r.usuario_nome,
-  ]));
-
-  pdfFooter(doc);
-  doc.end();
+function pdfDiario({ data, resumo, reservas }) {
+  return buildPdfBuffer(doc => {
+    let y = pdfHeader(doc, 'Relatório Diário', `Data: ${fmtDate(data)}`);
+    y += 14;
+    y = pdfMetrics(doc, y, [
+      { label: 'Total Reservas',   value: resumo.total_reservas },
+      { label: 'Ativas',           value: resumo.ativas },
+      { label: 'Concluídas',       value: resumo.concluidas },
+      { label: 'Canceladas',       value: resumo.canceladas },
+      { label: 'Salas Utilizadas', value: resumo.salas_utilizadas },
+    ]);
+    y = pdfSection(doc, y, 'Reservas do Dia');
+    pdfTable(doc, y, [
+      { label: 'Sala',       width: 55 },
+      { label: 'Bloco',      width: 65 },
+      { label: 'Turno',      width: 60 },
+      { label: 'Aula',       width: 30, align: 'center' },
+      { label: 'Início',     width: 38, align: 'center' },
+      { label: 'Fim',        width: 38, align: 'center' },
+      { label: 'Status',     width: 57 },
+      { label: 'Professor',  width: 100 },
+      { label: 'Disciplina', width: 72 },
+    ], reservas.map(r => [
+      r.nome_numero, r.bloco, r.turno, r.aula_numero,
+      fmtTime(r.hora_inicio), fmtTime(r.hora_fim), r.status, r.usuario_nome, r.disciplina || '—',
+    ]));
+  });
 }
 
-function pdfMensal(res, { nome_mes, ano, resumo, por_sala, por_dia }) {
-  const doc = newPdf();
-  doc.pipe(res);
-  doc.addPage();
-
-  let y = pdfHeader(doc, 'Relatório Mensal', `${nome_mes} / ${ano}`);
-  y += 14;
-
-  y = pdfMetrics(doc, y, [
-    { label: 'Total Reservas',     value: resumo.total_reservas },
-    { label: 'Canceladas',         value: resumo.canceladas },
-    { label: 'Salas Utilizadas',   value: resumo.salas_utilizadas },
-    { label: 'Professores Ativos', value: resumo.professores_ativos },
-  ]);
-
-  y = pdfSection(doc, y, 'Ranking de Salas');
-  y = pdfTable(doc, y, [
-    { label: 'Sala',           width: 80 },
-    { label: 'Bloco',          width: 135 },
-    { label: 'Tipo',           width: 110 },
-    { label: 'Total Reservas', width: 190, align: 'center' },
-  ], por_sala.map(s => [s.nome_numero, s.bloco, s.tipo_sala, s.total_reservas]));
-
-  y += 6;
-  y = pdfSection(doc, y, 'Reservas por Dia');
-  pdfTable(doc, y, [
-    { label: 'Data',             width: 130 },
-    { label: 'Total Reservas',   width: 130, align: 'center' },
-    { label: 'Canceladas',       width: 125, align: 'center' },
-    { label: 'Salas Utilizadas', width: 130, align: 'center' },
-  ], por_dia.map(d => [fmtDate(d.data), d.total_reservas, d.canceladas, d.salas_utilizadas]));
-
-  pdfFooter(doc);
-  doc.end();
+function pdfSemanal({ data_inicio, data_fim, resumo, por_dia, reservas }) {
+  return buildPdfBuffer(doc => {
+    let y = pdfHeader(doc, 'Relatório Semanal', `Período: ${fmtDate(data_inicio)} a ${fmtDate(data_fim)}`);
+    y += 14;
+    y = pdfMetrics(doc, y, [
+      { label: 'Total Reservas',   value: resumo.total_reservas },
+      { label: 'Canceladas',       value: resumo.canceladas },
+      { label: 'Salas Utilizadas', value: resumo.salas_utilizadas },
+    ]);
+    y = pdfSection(doc, y, 'Ocupação por Dia');
+    y = pdfTable(doc, y, [
+      { label: 'Data',             width: 120 },
+      { label: 'Total Reservas',   width: 135, align: 'center' },
+      { label: 'Canceladas',       width: 125, align: 'center' },
+      { label: 'Salas Utilizadas', width: 135, align: 'center' },
+    ], por_dia.map(d => [fmtDate(d.data), d.total_reservas, d.canceladas, d.salas_utilizadas]));
+    y += 6;
+    y = pdfSection(doc, y, 'Reservas do Período');
+    pdfTable(doc, y, [
+      { label: 'Data',      width: 68 },
+      { label: 'Sala',      width: 52 },
+      { label: 'Bloco',     width: 62 },
+      { label: 'Turno',     width: 58 },
+      { label: 'Aula',      width: 28, align: 'center' },
+      { label: 'Início',    width: 36, align: 'center' },
+      { label: 'Fim',       width: 36, align: 'center' },
+      { label: 'Status',    width: 52 },
+      { label: 'Professor', width: 123 },
+    ], reservas.map(r => [
+      fmtDate(r.data), r.nome_numero, r.bloco, r.turno, r.aula_numero,
+      fmtTime(r.hora_inicio), fmtTime(r.hora_fim), r.status, r.usuario_nome,
+    ]));
+  });
 }
 
-function pdfSemestral(res, { semestre, ano, periodo, resumo, por_mes }) {
-  const doc = newPdf();
-  doc.pipe(res);
-  doc.addPage();
+function pdfMensal({ nome_mes, ano, resumo, por_sala, por_dia }) {
+  return buildPdfBuffer(doc => {
+    let y = pdfHeader(doc, 'Relatório Mensal', `${nome_mes} / ${ano}`);
+    y += 14;
+    y = pdfMetrics(doc, y, [
+      { label: 'Total Reservas',     value: resumo.total_reservas },
+      { label: 'Canceladas',         value: resumo.canceladas },
+      { label: 'Salas Utilizadas',   value: resumo.salas_utilizadas },
+      { label: 'Professores Ativos', value: resumo.professores_ativos },
+    ]);
+    y = pdfSection(doc, y, 'Ranking de Salas');
+    y = pdfTable(doc, y, [
+      { label: 'Sala',           width: 80 },
+      { label: 'Bloco',          width: 135 },
+      { label: 'Tipo',           width: 110 },
+      { label: 'Total Reservas', width: 190, align: 'center' },
+    ], por_sala.map(s => [s.nome_numero, s.bloco, s.tipo_sala, s.total_reservas]));
+    y += 6;
+    y = pdfSection(doc, y, 'Reservas por Dia');
+    pdfTable(doc, y, [
+      { label: 'Data',             width: 130 },
+      { label: 'Total Reservas',   width: 130, align: 'center' },
+      { label: 'Canceladas',       width: 125, align: 'center' },
+      { label: 'Salas Utilizadas', width: 130, align: 'center' },
+    ], por_dia.map(d => [fmtDate(d.data), d.total_reservas, d.canceladas, d.salas_utilizadas]));
+  });
+}
 
-  const label = semestre === 1 ? '1º Semestre' : '2º Semestre';
-  let y = pdfHeader(
-    doc,
-    'Relatório Semestral',
-    `${label} / ${ano}   (${fmtDate(periodo.inicio)} a ${fmtDate(periodo.fim)})`
-  );
-  y += 14;
-
-  y = pdfMetrics(doc, y, [
-    { label: 'Total Reservas',   value: resumo.total_reservas },
-    { label: 'Canceladas',       value: resumo.canceladas },
-    { label: 'Salas Utilizadas', value: resumo.salas_utilizadas },
-  ]);
-
-  y = pdfSection(doc, y, 'Utilização por Mês');
-  pdfTable(doc, y, [
-    { label: 'Mês',              width: 130 },
-    { label: 'Total Reservas',   width: 130, align: 'center' },
-    { label: 'Canceladas',       width: 130, align: 'center' },
-    { label: 'Salas Utilizadas', width: 125, align: 'center' },
-  ], por_mes.map(m => [m.nome_mes, m.total_reservas, m.canceladas, m.salas_utilizadas]));
-
-  pdfFooter(doc);
-  doc.end();
+function pdfSemestral({ semestre, ano, periodo, resumo, por_mes }) {
+  return buildPdfBuffer(doc => {
+    const label = semestre === 1 ? '1º Semestre' : '2º Semestre';
+    let y = pdfHeader(doc, 'Relatório Semestral', `${label} / ${ano}   (${fmtDate(periodo.inicio)} a ${fmtDate(periodo.fim)})`);
+    y += 14;
+    y = pdfMetrics(doc, y, [
+      { label: 'Total Reservas',   value: resumo.total_reservas },
+      { label: 'Canceladas',       value: resumo.canceladas },
+      { label: 'Salas Utilizadas', value: resumo.salas_utilizadas },
+    ]);
+    y = pdfSection(doc, y, 'Utilização por Mês');
+    pdfTable(doc, y, [
+      { label: 'Mês',              width: 130 },
+      { label: 'Total Reservas',   width: 130, align: 'center' },
+      { label: 'Canceladas',       width: 130, align: 'center' },
+      { label: 'Salas Utilizadas', width: 125, align: 'center' },
+    ], por_mes.map(m => [m.nome_mes, m.total_reservas, m.canceladas, m.salas_utilizadas]));
+  });
 }
 
 module.exports = {
