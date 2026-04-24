@@ -561,8 +561,17 @@ router.post('/', authMiddleware, async (req, res) => {
  *       Todos os campos são opcionais — envie apenas o que deseja alterar.
  *
  *       > ⚠️ **`hora_inicio` e `hora_fim` não são campos de entrada.** Para alterar o horário da reserva,
- *       > envie `turno` e/ou `aula_numero`. O backend recalcula `hora_inicio` e `hora_fim` automaticamente
+ *       > envie `turno` e/ou `aula_numeros`. O backend recalcula `hora_inicio` e `hora_fim` automaticamente
  *       > e os retorna na resposta. Consulte `GET /api/reservas/horarios` para ver a tabela de horários.
+ *
+ *       **Seleção de múltiplas aulas:**
+ *       Envie `aula_numeros` como array para reservar mais de um horário no mesmo turno.
+ *       O backend reutiliza a reserva existente para uma das aulas e cria novas reservas para as demais,
+ *       tudo dentro de uma única transação. Se qualquer slot tiver conflito, nada é alterado.
+ *       - Com 1 aula → resposta é um objeto (`Reserva`)
+ *       - Com 2+ aulas → resposta é um array (`Reserva[]`), com a reserva editada primeiro
+ *
+ *       **Compatibilidade:** `aula_numero` (inteiro) ainda é aceito como alias de `aula_numeros: [N]`.
  *
  *       **Regras de negócio aplicadas:**
  *       - ❌ Datas passadas não são permitidas
@@ -595,42 +604,42 @@ router.post('/', authMiddleware, async (req, res) => {
  *               turno:
  *                 type: string
  *                 enum: [matutino, vespertino, noturno]
+ *               aula_numeros:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                   minimum: 1
+ *                   maximum: 4
+ *                 description: 'Array de aulas a reservar (1–4). Use [N] para uma única aula.'
  *               aula_numero:
  *                 type: integer
  *                 minimum: 1
  *                 maximum: 4
+ *                 description: 'Alias de aula_numeros: [N]. Mantido para compatibilidade.'
  *               disciplina:
  *                 type: string
  *           example:
  *             sala_id: "uuid-da-nova-sala"
  *             data: "2026-04-15"
  *             turno: "vespertino"
- *             aula_numero: 2
+ *             aula_numeros: [2, 3]
  *             disciplina: "Algoritmos"
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Reserva atualizada com sucesso. `hora_inicio` e `hora_fim` são calculados automaticamente pelo backend com base em `turno` e `aula_numero`.
+ *         description: |
+ *           Reserva(s) atualizada(s) com sucesso.
+ *           - 1 aula selecionada → objeto único (`Reserva`)
+ *           - 2+ aulas selecionadas → array (`Reserva[]`), reserva editada primeiro
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Reserva'
- *             example:
- *               id: "uuid-da-reserva"
- *               sala_id: "uuid-da-nova-sala"
- *               usuario_id: "uuid-do-professor"
- *               criado_por: "uuid-do-professor"
- *               data: "2026-04-15"
- *               turno: "vespertino"
- *               aula_numero: 2
- *               hora_inicio: "13:55"
- *               hora_fim: "14:45"
- *               status: "ativa"
- *               disciplina: "Algoritmos"
- *               criado_em: "2026-04-10T10:00:00.000Z"
- *               cancelado_em: null
- *               cancelado_por: null
+ *               oneOf:
+ *                 - $ref: '#/components/schemas/Reserva'
+ *                 - type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Reserva'
  *       400:
  *         description: Dados inválidos ou regra de negócio violada
  *         content:
@@ -649,7 +658,7 @@ router.post('/', authMiddleware, async (req, res) => {
  *               horario_passado:
  *                 summary: Horário já passou no dia atual
  *                 value:
- *                   error: "Não é permitido fazer reservas em horários já passados"
+ *                   error: "Não é permitido fazer reservas em horários já passados (aula 2)"
  *               mes_diferente:
  *                 summary: Professor fora do mês corrente
  *                 value:
@@ -657,7 +666,7 @@ router.post('/', authMiddleware, async (req, res) => {
  *               conflito:
  *                 summary: Conflito de horário
  *                 value:
- *                   error: "Sala já reservada nesse horário"
+ *                   error: "Sala já reservada nesse horário (aula 3)"
  *               sala_inativa:
  *                 summary: Sala inativa
  *                 value:
@@ -683,105 +692,178 @@ router.post('/', authMiddleware, async (req, res) => {
  */
 async function editarReserva(req, res) {
   const { id } = req.params;
-  const { sala_id, data, turno, aula_numero, disciplina } = req.body;
+  const { sala_id, data, turno, aula_numero, aula_numeros, disciplina } = req.body;
 
   if (turno && !['matutino', 'vespertino', 'noturno'].includes(turno)) {
     return res.status(400).json({ error: 'turno deve ser "matutino", "vespertino" ou "noturno"' });
   }
-  const aulaNum = aula_numero !== undefined ? Number(aula_numero) : undefined;
-  if (aulaNum !== undefined && ![1, 2, 3, 4].includes(aulaNum)) {
-    return res.status(400).json({ error: 'aula_numero deve ser 1, 2, 3 ou 4' });
+
+  // Normalize to array: aula_numeros takes priority, aula_numero is a backward-compat alias
+  let inputSlots;
+  if (aula_numeros !== undefined) {
+    inputSlots = (Array.isArray(aula_numeros) ? aula_numeros : [aula_numeros]).map(Number);
+  } else if (aula_numero !== undefined) {
+    inputSlots = [Number(aula_numero)];
   }
 
-  try {
-    const reservaResult = await pool.query('SELECT * FROM reserva WHERE id = $1', [id]);
-    if (reservaResult.rowCount === 0) return res.status(404).json({ error: 'Reserva não encontrada' });
+  if (inputSlots !== undefined) {
+    if (inputSlots.length === 0) {
+      return res.status(400).json({ error: 'aula_numeros não pode ser vazio' });
+    }
+    for (const s of inputSlots) {
+      if (![1, 2, 3, 4].includes(s)) {
+        return res.status(400).json({ error: 'aula_numero deve ser 1, 2, 3 ou 4' });
+      }
+    }
+    if (new Set(inputSlots).size !== inputSlots.length) {
+      return res.status(400).json({ error: 'aula_numeros não pode ter valores duplicados' });
+    }
+  }
 
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const reservaResult = await client.query('SELECT * FROM reserva WHERE id = $1', [id]);
+    if (reservaResult.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Reserva não encontrada' });
+    }
     const reserva = reservaResult.rows[0];
     if (reserva.status !== 'ativa') {
+      await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Apenas reservas ativas podem ser editadas' });
     }
 
     // Merge: use new values if provided, otherwise keep existing
     const novaData = data || reserva.data;
     const novoTurno = turno || reserva.turno;
-    const novaAula = aulaNum !== undefined ? aulaNum : reserva.aula_numero;
     const novaSalaId = sala_id || reserva.sala_id;
+    const slots = inputSlots !== undefined ? inputSlots : [reserva.aula_numero];
 
-    // Validação: não permitir datas passadas (horário de Brasília UTC-3)
+    // Determine which slot the existing record keeps:
+    // prefer keeping the original slot if it's still selected, otherwise use the first in the list
+    const slotExistente = slots.includes(reserva.aula_numero) ? reserva.aula_numero : slots[0];
+    const slotsNovos = slots.filter(s => s !== slotExistente);
+
     const agora = new Date();
     const TZ = 'America/Sao_Paulo';
-    const hojeStrBR = new Intl.DateTimeFormat('sv-SE', { timeZone: TZ }).format(agora); // YYYY-MM-DD
+    const hojeStrBR = new Intl.DateTimeFormat('sv-SE', { timeZone: TZ }).format(agora);
+
     if (novaData < hojeStrBR) {
+      await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Não é permitido fazer reservas em datas passadas' });
     }
 
-    // Validação: não permitir horários já passados no dia atual
     if (novaData === hojeStrBR) {
-      const { hora_inicio } = HORARIOS[novoTurno][novaAula];
-      const [hh, mm] = hora_inicio.split(':').map(Number);
-      const agoraBR = new Date(agora.toLocaleString('en-US', { timeZone: TZ }));
-      const minutosAgora = agoraBR.getHours() * 60 + agoraBR.getMinutes();
-      const minutosSlot = hh * 60 + mm;
-      if (minutosAgora > minutosSlot) {
-        return res.status(400).json({ error: 'Não é permitido fazer reservas em horários já passados' });
+      for (const slot of slots) {
+        const { hora_inicio } = HORARIOS[novoTurno][slot];
+        const [hh, mm] = hora_inicio.split(':').map(Number);
+        const agoraBR = new Date(agora.toLocaleString('en-US', { timeZone: TZ }));
+        const minutosAgora = agoraBR.getHours() * 60 + agoraBR.getMinutes();
+        if (minutosAgora > hh * 60 + mm) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: `Não é permitido fazer reservas em horários já passados (aula ${slot})` });
+        }
       }
     }
 
-    // Validação: professor só pode reservar no mês corrente
-    const usuarioResult = await pool.query('SELECT tipo FROM usuario WHERE id = $1', [reserva.usuario_id]);
+    const usuarioResult = await client.query('SELECT tipo FROM usuario WHERE id = $1', [reserva.usuario_id]);
     if (usuarioResult.rows[0].tipo === 'professor') {
       const agoraBR = new Date(agora.toLocaleString('en-US', { timeZone: TZ }));
       const dataReserva = new Date(novaData + 'T00:00:00');
       if (dataReserva.getFullYear() !== agoraBR.getFullYear() || dataReserva.getMonth() !== agoraBR.getMonth()) {
+        await client.query('ROLLBACK');
         return res.status(400).json({ error: 'Professores só podem reservar salas dentro do mês corrente' });
       }
     }
 
-    // Verificar se a sala existe e está ativa
-    const salaResult = await pool.query('SELECT ativo FROM sala WHERE id = $1', [novaSalaId]);
-    if (salaResult.rowCount === 0) return res.status(400).json({ error: 'Sala não encontrada' });
-    if (!salaResult.rows[0].ativo) return res.status(400).json({ error: 'Sala inativa' });
-
-    // Verificar conflito (excluindo a própria reserva)
-    const conflito = await pool.query(
-      `SELECT id FROM reserva
-       WHERE sala_id = $1 AND data = $2 AND turno = $3 AND aula_numero = $4 AND status = 'ativa' AND id != $5`,
-      [novaSalaId, novaData, novoTurno, novaAula, id]
-    );
-    if (conflito.rowCount > 0) {
-      return res.status(400).json({ error: 'Sala já reservada nesse horário' });
+    const salaResult = await client.query('SELECT ativo FROM sala WHERE id = $1', [novaSalaId]);
+    if (salaResult.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Sala não encontrada' });
+    }
+    if (!salaResult.rows[0].ativo) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Sala inativa' });
     }
 
-    const { hora_inicio, hora_fim } = HORARIOS[novoTurno][novaAula];
+    // Conflict check for every slot.
+    // For slotExistente, exclude the current reservation ID (it's being updated, not a real conflict).
+    for (const slot of slots) {
+      const isExisting = slot === slotExistente;
+      const conflito = isExisting
+        ? await client.query(
+            `SELECT id FROM reserva WHERE sala_id = $1 AND data = $2 AND turno = $3 AND aula_numero = $4 AND status = 'ativa' AND id != $5`,
+            [novaSalaId, novaData, novoTurno, slot, id]
+          )
+        : await client.query(
+            `SELECT id FROM reserva WHERE sala_id = $1 AND data = $2 AND turno = $3 AND aula_numero = $4 AND status = 'ativa'`,
+            [novaSalaId, novaData, novoTurno, slot]
+          );
+      if (conflito.rowCount > 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: `Sala já reservada nesse horário (aula ${slot})` });
+      }
+    }
+
     const novaDisciplina = disciplina !== undefined ? disciplina : reserva.disciplina;
 
-    const { rows } = await pool.query(
+    // UPDATE existing reservation
+    const { hora_inicio: hiExistente, hora_fim: hfExistente } = HORARIOS[novoTurno][slotExistente];
+    const { rows: [reservaAtualizada] } = await client.query(
       `UPDATE reserva
        SET sala_id = $1, data = $2, turno = $3, aula_numero = $4, hora_inicio = $5, hora_fim = $6, disciplina = $7
        WHERE id = $8
        RETURNING *`,
-      [novaSalaId, novaData, novoTurno, novaAula, hora_inicio, hora_fim, novaDisciplina, id]
+      [novaSalaId, novaData, novoTurno, slotExistente, hiExistente, hfExistente, novaDisciplina, id]
     );
+
+    // INSERT new reservations for additional slots
+    const reservasCriadas = [];
+    for (const slot of slotsNovos) {
+      const { hora_inicio, hora_fim } = HORARIOS[novoTurno][slot];
+      const { rows: [novaReserva] } = await client.query(
+        `INSERT INTO reserva (sala_id, usuario_id, criado_por, data, turno, aula_numero, hora_inicio, hora_fim, disciplina, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'ativa')
+         RETURNING *`,
+        [novaSalaId, reserva.usuario_id, reserva.criado_por, novaData, novoTurno, slot, hora_inicio, hora_fim, novaDisciplina]
+      );
+      reservasCriadas.push(novaReserva);
+    }
+
+    await client.query('COMMIT');
+
     const camposAlterados = [];
     if (sala_id) camposAlterados.push('sala_id');
     if (data) camposAlterados.push('data');
     if (turno) camposAlterados.push('turno');
-    if (aula_numero !== undefined) camposAlterados.push('aula_numero');
+    if (inputSlots !== undefined) camposAlterados.push('aula_numeros');
     if (disciplina !== undefined) camposAlterados.push('disciplina');
     await registrarLog(pool, {
       acao: 'reserva.edicao',
       entidade: 'reserva',
       entidade_id: id,
       realizado_por: req.usuario?.id || null,
-      detalhes: { campos_alterados: camposAlterados, data_nova: novaData, turno_novo: novoTurno, aula_nova: novaAula },
+      detalhes: {
+        campos_alterados: camposAlterados,
+        data_nova: novaData,
+        turno_novo: novoTurno,
+        aulas_novas: slots,
+        reservas_criadas: reservasCriadas.map(r => r.id),
+      },
     });
-    res.json(rows[0]);
+
+    const todas = [reservaAtualizada, ...reservasCriadas];
+    res.json(todas.length === 1 ? todas[0] : todas);
   } catch (err) {
+    await client.query('ROLLBACK');
     if (err.code === '23505') {
       return res.status(400).json({ error: 'Sala já reservada nesse horário' });
     }
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 }
 
@@ -793,6 +875,7 @@ async function editarReserva(req, res) {
  *     tags: [Reservas]
  *     description: |
  *       Comportamento idêntico ao `PATCH /api/reservas/{id}`. Aceito para compatibilidade com clientes que utilizam PUT.
+ *       Consulte a documentação do PATCH para detalhes completos, incluindo seleção de múltiplas aulas.
  *     parameters:
  *       - in: path
  *         name: id
@@ -817,27 +900,42 @@ async function editarReserva(req, res) {
  *               turno:
  *                 type: string
  *                 enum: [matutino, vespertino, noturno]
+ *               aula_numeros:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                   minimum: 1
+ *                   maximum: 4
+ *                 description: 'Array de aulas a reservar (1–4). Use [N] para uma única aula.'
  *               aula_numero:
  *                 type: integer
  *                 minimum: 1
  *                 maximum: 4
+ *                 description: 'Alias de aula_numeros: [N]. Mantido para compatibilidade.'
  *               disciplina:
  *                 type: string
  *           example:
  *             sala_id: "uuid-da-nova-sala"
  *             data: "2026-04-15"
  *             turno: "vespertino"
- *             aula_numero: 2
+ *             aula_numeros: [2, 3]
  *             disciplina: "Algoritmos"
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Reserva atualizada com sucesso
+ *         description: |
+ *           Reserva(s) atualizada(s) com sucesso.
+ *           - 1 aula selecionada → objeto único (`Reserva`)
+ *           - 2+ aulas selecionadas → array (`Reserva[]`), reserva editada primeiro
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Reserva'
+ *               oneOf:
+ *                 - $ref: '#/components/schemas/Reserva'
+ *                 - type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Reserva'
  *       400:
  *         $ref: '#/components/responses/400'
  *       401:
