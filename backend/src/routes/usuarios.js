@@ -452,6 +452,8 @@ router.put('/:id?', async (req, res) => {
  *     description: |
  *       Desativa o usuário definindo `ativo = false`. **O registro não é removido do banco de dados.**
  *
+ *       > ⚠️ Um administrador não pode desativar a própria conta.
+ *
  *       Para reativar um usuário desativado, use `PUT /api/usuarios/{id}` com `{ "ativo": true }`.
  *     parameters:
  *       - in: path
@@ -468,6 +470,14 @@ router.put('/:id?', async (req, res) => {
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Usuario'
+ *       403:
+ *         description: Administrador tentando desativar a própria conta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Um administrador não pode desativar a própria conta"
  *       404:
  *         description: Usuário não encontrado
  *         content:
@@ -481,6 +491,10 @@ router.put('/:id?', async (req, res) => {
  */
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;
+
+  if (req.usuario?.id === id) {
+    return res.status(403).json({ error: 'Um administrador não pode desativar a própria conta' });
+  }
 
   try {
     const { rows, rowCount } = await pool.query(
