@@ -91,6 +91,7 @@ const MESES = [
  *
  *       **Resposta inclui:**
  *       - `resumo` — contagens por status (ativas, concluídas, canceladas) e salas utilizadas
+ *       - `por_sala` — ranking das salas mais utilizadas no dia (inclui salas com zero reservas)
  *       - `reservas` — lista com sala, professor, turno, aula e horário
  *
  *       Adicione `&formato=csv` ou `&formato=pdf` para exportar.
@@ -129,6 +130,12 @@ const MESES = [
  *                 concluidas: 2
  *                 canceladas: 1
  *                 salas_utilizadas: 8
+ *               por_sala:
+ *                 - sala_id: "uuid-sala"
+ *                   nome_numero: "B-101"
+ *                   bloco: "Bloco B"
+ *                   tipo_sala: "sala_aula"
+ *                   total_reservas: 4
  *               reservas:
  *                 - sala_id: "uuid-sala"
  *                   nome_numero: "B-101"
@@ -165,7 +172,7 @@ router.get('/diario', async (req, res) => {
   if (!data) return res.status(400).json({ error: 'Parâmetro obrigatório: data' });
 
   try {
-    const [resumoResult, reservasResult] = await Promise.all([
+    const [resumoResult, porSalaResult, reservasResult] = await Promise.all([
       pool.query(
         `SELECT
            COUNT(*) FILTER (WHERE status != 'cancelada')        AS total_reservas,
@@ -175,6 +182,16 @@ router.get('/diario', async (req, res) => {
            COUNT(DISTINCT sala_id) FILTER (WHERE status != 'cancelada') AS salas_utilizadas
          FROM reserva
          WHERE data = $1`,
+        [data]
+      ),
+      pool.query(
+        `SELECT
+           s.id AS sala_id, s.nome_numero, s.bloco, s.tipo_sala,
+           COUNT(r.id) FILTER (WHERE r.status != 'cancelada') AS total_reservas
+         FROM sala s
+         LEFT JOIN reserva r ON r.sala_id = s.id AND r.data = $1
+         GROUP BY s.id, s.nome_numero, s.bloco, s.tipo_sala
+         ORDER BY total_reservas DESC, s.bloco, s.nome_numero`,
         [data]
       ),
       pool.query(
@@ -202,6 +219,13 @@ router.get('/diario', async (req, res) => {
         canceladas:       parseInt(r.canceladas),
         salas_utilizadas: parseInt(r.salas_utilizadas),
       },
+      por_sala: porSalaResult.rows.map(s => ({
+        sala_id:        s.sala_id,
+        nome_numero:    s.nome_numero,
+        bloco:          s.bloco,
+        tipo_sala:      s.tipo_sala,
+        total_reservas: parseInt(s.total_reservas),
+      })),
       reservas: reservasResult.rows,
     };
 
@@ -241,6 +265,7 @@ router.get('/diario', async (req, res) => {
  *
  *       **Resposta inclui:**
  *       - `resumo` — totais do período completo
+ *       - `por_sala` — ranking das salas mais utilizadas no período (inclui salas com zero reservas)
  *       - `por_dia` — contagem de reservas e salas utilizadas para cada dia
  *       - `reservas` — lista completa de reservas no período
  *
@@ -287,6 +312,12 @@ router.get('/diario', async (req, res) => {
  *                 total_reservas: 45
  *                 canceladas: 3
  *                 salas_utilizadas: 12
+ *               por_sala:
+ *                 - sala_id: "uuid-sala"
+ *                   nome_numero: "B-101"
+ *                   bloco: "Bloco B"
+ *                   tipo_sala: "sala_aula"
+ *                   total_reservas: 10
  *               por_dia:
  *                 - data: "2026-04-14"
  *                   total_reservas: 8
@@ -332,7 +363,7 @@ router.get('/semanal', async (req, res) => {
   }
 
   try {
-    const [resumoResult, porDiaResult, reservasResult] = await Promise.all([
+    const [resumoResult, porSalaResult, porDiaResult, reservasResult] = await Promise.all([
       pool.query(
         `SELECT
            COUNT(*) FILTER (WHERE status != 'cancelada') AS total_reservas,
@@ -340,6 +371,16 @@ router.get('/semanal', async (req, res) => {
            COUNT(DISTINCT sala_id) FILTER (WHERE status != 'cancelada') AS salas_utilizadas
          FROM reserva
          WHERE data BETWEEN $1 AND $2`,
+        [data_inicio, data_fim]
+      ),
+      pool.query(
+        `SELECT
+           s.id AS sala_id, s.nome_numero, s.bloco, s.tipo_sala,
+           COUNT(r.id) FILTER (WHERE r.status != 'cancelada') AS total_reservas
+         FROM sala s
+         LEFT JOIN reserva r ON r.sala_id = s.id AND r.data BETWEEN $1 AND $2
+         GROUP BY s.id, s.nome_numero, s.bloco, s.tipo_sala
+         ORDER BY total_reservas DESC, s.bloco, s.nome_numero`,
         [data_inicio, data_fim]
       ),
       pool.query(
@@ -378,6 +419,13 @@ router.get('/semanal', async (req, res) => {
         canceladas:       parseInt(r.canceladas),
         salas_utilizadas: parseInt(r.salas_utilizadas),
       },
+      por_sala: porSalaResult.rows.map(s => ({
+        sala_id:        s.sala_id,
+        nome_numero:    s.nome_numero,
+        bloco:          s.bloco,
+        tipo_sala:      s.tipo_sala,
+        total_reservas: parseInt(s.total_reservas),
+      })),
       por_dia: porDiaResult.rows.map(d => ({
         data:             d.data,
         total_reservas:   parseInt(d.total_reservas),
@@ -611,6 +659,7 @@ router.get('/mensal', async (req, res) => {
  *
  *       **Resposta inclui:**
  *       - `resumo` — totais do semestre completo
+ *       - `por_sala` — ranking das salas mais utilizadas no semestre (inclui salas com zero reservas)
  *       - `por_mes` — totais mensais com nome do mês, reservas e salas utilizadas
  *
  *       Adicione `&formato=csv` ou `&formato=pdf` para exportar.
@@ -658,6 +707,12 @@ router.get('/mensal', async (req, res) => {
  *                 total_reservas: 820
  *                 canceladas: 48
  *                 salas_utilizadas: 18
+ *               por_sala:
+ *                 - sala_id: "uuid-sala"
+ *                   nome_numero: "B-101"
+ *                   bloco: "Bloco B"
+ *                   tipo_sala: "sala_aula"
+ *                   total_reservas: 95
  *               por_mes:
  *                 - mes: 1
  *                   nome_mes: "Janeiro"
@@ -702,7 +757,7 @@ router.get('/semestral', async (req, res) => {
   const dataFim    = semestre === 1 ? `${ano}-06-30` : `${ano}-12-31`;
 
   try {
-    const [resumoResult, porMesResult] = await Promise.all([
+    const [resumoResult, porSalaResult, porMesResult] = await Promise.all([
       pool.query(
         `SELECT
            COUNT(*) FILTER (WHERE status != 'cancelada')        AS total_reservas,
@@ -710,6 +765,16 @@ router.get('/semestral', async (req, res) => {
            COUNT(DISTINCT sala_id) FILTER (WHERE status != 'cancelada') AS salas_utilizadas
          FROM reserva
          WHERE data BETWEEN $1 AND $2`,
+        [dataInicio, dataFim]
+      ),
+      pool.query(
+        `SELECT
+           s.id AS sala_id, s.nome_numero, s.bloco, s.tipo_sala,
+           COUNT(r.id) FILTER (WHERE r.status != 'cancelada') AS total_reservas
+         FROM sala s
+         LEFT JOIN reserva r ON r.sala_id = s.id AND r.data BETWEEN $1 AND $2
+         GROUP BY s.id, s.nome_numero, s.bloco, s.tipo_sala
+         ORDER BY total_reservas DESC, s.bloco, s.nome_numero`,
         [dataInicio, dataFim]
       ),
       pool.query(
@@ -736,6 +801,13 @@ router.get('/semestral', async (req, res) => {
         canceladas:       parseInt(r.canceladas),
         salas_utilizadas: parseInt(r.salas_utilizadas),
       },
+      por_sala: porSalaResult.rows.map(s => ({
+        sala_id:        s.sala_id,
+        nome_numero:    s.nome_numero,
+        bloco:          s.bloco,
+        tipo_sala:      s.tipo_sala,
+        total_reservas: parseInt(s.total_reservas),
+      })),
       por_mes: porMesResult.rows.map(m => ({
         mes:              m.mes,
         nome_mes:         MESES[m.mes],
