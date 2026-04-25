@@ -373,6 +373,8 @@ router.delete('/:id/equipamentos/:equipamento_id', async (req, res) => {
  *       **Campos atualizáveis:** `nome_numero`, `bloco`, `capacidade`, `tipo_sala`, `ativo`
  *
  *       **Dica:** para reativar uma sala desativada, envie `{ "ativo": true }`.
+ *
+ *       > ⚠️ Se `ativo: false` for enviado, todas as reservas com status `ativa` vinculadas a esta sala serão **automaticamente canceladas**.
  *     parameters:
  *       - in: path
  *         name: id
@@ -442,6 +444,62 @@ router.put('/:id', async (req, res) => {
   if (fields.length === 0) return res.status(400).json({ error: 'Nenhum campo fornecido para atualização' });
 
   values.push(id);
+
+  const desativando = ativo !== undefined && !ativo;
+
+  if (desativando) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const { rows, rowCount } = await client.query(
+        `UPDATE sala SET ${fields.join(', ')} WHERE id = $${values.length} RETURNING *`,
+        values
+      );
+      if (rowCount === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Sala não encontrada' });
+      }
+
+      const canceladas = await client.query(
+        `UPDATE reserva
+         SET status = 'cancelada', cancelado_em = NOW(), cancelado_por = $1
+         WHERE sala_id = $2 AND status = 'ativa'
+         RETURNING id`,
+        [req.usuario?.id || null, id]
+      );
+
+      await client.query('COMMIT');
+
+      const camposAlterados = [];
+      if (nome_numero !== undefined) camposAlterados.push('nome_numero');
+      if (bloco !== undefined) camposAlterados.push('bloco');
+      if (capacidade !== undefined) camposAlterados.push('capacidade');
+      if (tipo_sala !== undefined) camposAlterados.push('tipo_sala');
+      camposAlterados.push('ativo');
+
+      await registrarLog(pool, {
+        acao: 'sala.indisponibilidade',
+        entidade: 'sala',
+        entidade_id: id,
+        realizado_por: req.usuario?.id || null,
+        detalhes: {
+          campos_alterados: camposAlterados,
+          nome_numero: rows[0].nome_numero,
+          bloco: rows[0].bloco,
+          reservas_canceladas: canceladas.rows.map(r => r.id),
+        },
+      });
+
+      return res.json(rows[0]);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      return res.status(500).json({ error: err.message });
+    } finally {
+      client.release();
+    }
+  }
+
   try {
     const { rows, rowCount } = await pool.query(
       `UPDATE sala SET ${fields.join(', ')} WHERE id = $${values.length} RETURNING *`,
@@ -449,7 +507,6 @@ router.put('/:id', async (req, res) => {
     );
     if (rowCount === 0) return res.status(404).json({ error: 'Sala não encontrada' });
 
-    const acaoLog = (ativo !== undefined && !ativo) ? 'sala.indisponibilidade' : 'sala.edicao';
     const camposAlterados = [];
     if (nome_numero !== undefined) camposAlterados.push('nome_numero');
     if (bloco !== undefined) camposAlterados.push('bloco');
@@ -458,7 +515,7 @@ router.put('/:id', async (req, res) => {
     if (ativo !== undefined) camposAlterados.push('ativo');
 
     await registrarLog(pool, {
-      acao: acaoLog,
+      acao: 'sala.edicao',
       entidade: 'sala',
       entidade_id: id,
       realizado_por: req.usuario?.id || null,
@@ -479,6 +536,8 @@ router.put('/:id', async (req, res) => {
  *     tags: [Salas]
  *     description: |
  *       Desativa a sala definindo `ativo = false`. **O registro não é removido do banco de dados.**
+ *
+ *       Ao desativar, todas as reservas com status `ativa` vinculadas a esta sala são **automaticamente canceladas**.
  *
  *       Salas desativadas não aparecem na consulta de disponibilidade e não aceitam novas reservas.
  *
@@ -511,23 +570,48 @@ router.put('/:id', async (req, res) => {
  */
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;
+  const client = await pool.connect();
 
   try {
-    const { rows, rowCount } = await pool.query(
+    await client.query('BEGIN');
+
+    const { rows, rowCount } = await client.query(
       'UPDATE sala SET ativo = false WHERE id = $1 RETURNING *',
       [id]
     );
-    if (rowCount === 0) return res.status(404).json({ error: 'Sala não encontrada' });
+    if (rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Sala não encontrada' });
+    }
+
+    const canceladas = await client.query(
+      `UPDATE reserva
+       SET status = 'cancelada', cancelado_em = NOW(), cancelado_por = $1
+       WHERE sala_id = $2 AND status = 'ativa'
+       RETURNING id`,
+      [req.usuario?.id || null, id]
+    );
+
+    await client.query('COMMIT');
+
     await registrarLog(pool, {
       acao: 'sala.indisponibilidade',
       entidade: 'sala',
       entidade_id: id,
       realizado_por: req.usuario?.id || null,
-      detalhes: { nome_numero: rows[0].nome_numero, bloco: rows[0].bloco },
+      detalhes: {
+        nome_numero: rows[0].nome_numero,
+        bloco: rows[0].bloco,
+        reservas_canceladas: canceladas.rows.map(r => r.id),
+      },
     });
+
     res.json(rows[0]);
   } catch (err) {
+    await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 
