@@ -33,10 +33,9 @@ const MESES = [
  *
  *     ### Semanal — ocupação ao longo de uma semana
  *     ```
- *     GET /api/relatorios/semanal?data_inicio=2026-04-14&data_fim=2026-04-20
+ *     GET /api/relatorios/semanal?data_inicio=2026-04-14
  *     ```
- *     Retorna totais por dia no período + lista de reservas. `data_inicio` e `data_fim` são inclusivos.
- *     Para a semana atual use a segunda-feira e domingo da semana.
+ *     Retorna totais por dia no período + lista de reservas. O backend calcula automaticamente `data_fim` como 6 dias após `data_inicio` (janela de 7 dias, inclusiva).
  *
  *     ---
  *
@@ -260,8 +259,8 @@ router.get('/diario', async (req, res) => {
  *     summary: Relatório semanal de ocupação dos espaços
  *     tags: [Relatórios]
  *     description: |
- *       Retorna a ocupação dos espaços ao longo de um período (tipicamente 7 dias).
- *       `data_inicio` e `data_fim` são inclusivos.
+ *       Retorna a ocupação dos espaços ao longo de 7 dias a partir de `data_inicio`.
+ *       O backend calcula `data_fim` automaticamente como 6 dias após `data_inicio` (ambos inclusivos).
  *
  *       **Resposta inclui:**
  *       - `resumo` — totais do período completo
@@ -277,16 +276,8 @@ router.get('/diario', async (req, res) => {
  *         schema:
  *           type: string
  *           format: date
- *         description: "Primeiro dia do período (YYYY-MM-DD). Ex: 2026-04-14"
+ *         description: "Primeiro dia da semana (YYYY-MM-DD). Ex: 2026-04-14 — o backend calcula os 7 dias automaticamente."
  *         example: "2026-04-14"
- *       - in: query
- *         name: data_fim
- *         required: true
- *         schema:
- *           type: string
- *           format: date
- *         description: "Último dia do período, inclusivo (YYYY-MM-DD). Ex: 2026-04-20"
- *         example: "2026-04-20"
  *       - in: query
  *         name: formato
  *         schema:
@@ -348,19 +339,24 @@ router.get('/diario', async (req, res) => {
  *               format: binary
  *               description: "Planilha CSV compatível com Excel (retornada quando ?formato=csv)"
  *       400:
- *         description: Parâmetros obrigatórios ausentes
+ *         description: Parâmetro obrigatório ausente
  *         content:
  *           application/json:
  *             example:
- *               error: "Parâmetros obrigatórios: data_inicio, data_fim"
+ *               error: "Parâmetro obrigatório: data_inicio"
  *       500:
  *         description: Erro interno do servidor
  */
 router.get('/semanal', async (req, res) => {
-  const { data_inicio, data_fim, formato } = req.query;
-  if (!data_inicio || !data_fim) {
-    return res.status(400).json({ error: 'Parâmetros obrigatórios: data_inicio, data_fim' });
+  const { data_inicio, formato } = req.query;
+  if (!data_inicio) {
+    return res.status(400).json({ error: 'Parâmetro obrigatório: data_inicio' });
   }
+
+  const inicio = new Date(data_inicio + 'T00:00:00Z');
+  const fimDate = new Date(inicio);
+  fimDate.setUTCDate(fimDate.getUTCDate() + 6);
+  const data_fim = fimDate.toISOString().slice(0, 10);
 
   try {
     const [resumoResult, porSalaResult, porDiaResult, reservasResult] = await Promise.all([
