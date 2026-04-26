@@ -206,6 +206,22 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'senha deve ter no mínimo 6 caracteres' });
   }
 
+  // Check our DB first: active email is a hard block; inactive means we must free the Supabase slot
+  const { rows: dbCheck } = await pool.query(
+    'SELECT id, auth_id, ativo FROM usuario WHERE email = $1',
+    [email]
+  );
+
+  if (dbCheck.length > 0) {
+    if (dbCheck[0].ativo) {
+      return res.status(400).json({ error: 'E-mail já cadastrado' });
+    }
+    // Email belongs to a soft-deleted user — remove their Supabase auth entry to free the email
+    if (dbCheck[0].auth_id) {
+      await supabase.auth.admin.deleteUser(dbCheck[0].auth_id);
+    }
+  }
+
   const { data, error } = await supabase.auth.admin.createUser({
     email,
     password: senha,
@@ -218,6 +234,24 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'E-mail já cadastrado' });
     }
     return res.status(500).json({ error: error.message });
+  }
+
+  // If replacing an inactive user's record, update it in place
+  if (dbCheck.length > 0 && !dbCheck[0].ativo) {
+    const { rows: updated } = await pool.query(
+      `UPDATE usuario SET auth_id = $1, nome = $2, tipo = $3, ativo = true
+       WHERE id = $4
+       RETURNING id, nome, email, tipo, ativo, criado_em`,
+      [data.user.id, nome, tipo, dbCheck[0].id]
+    );
+    await registrarLog(pool, {
+      acao: 'usuario.criacao',
+      entidade: 'usuario',
+      entidade_id: updated[0].id,
+      realizado_por: req.usuario?.id || null,
+      detalhes: { nome, email, tipo },
+    });
+    return res.status(201).json(updated[0]);
   }
 
   // Upsert into public.usuario — trigger may have already done this, ON CONFLICT handles the duplicate
