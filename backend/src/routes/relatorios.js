@@ -301,6 +301,8 @@ router.get('/diario', async (req, res) => {
  *               data_fim: "2026-04-20"
  *               resumo:
  *                 total_reservas: 45
+ *                 ativas: 38
+ *                 concluidas: 4
  *                 canceladas: 3
  *                 salas_utilizadas: 12
  *               por_sala:
@@ -312,10 +314,14 @@ router.get('/diario', async (req, res) => {
  *               por_dia:
  *                 - data: "2026-04-14"
  *                   total_reservas: 8
+ *                   ativas: 7
+ *                   concluidas: 1
  *                   canceladas: 0
  *                   salas_utilizadas: 5
  *                 - data: "2026-04-15"
  *                   total_reservas: 10
+ *                   ativas: 8
+ *                   concluidas: 1
  *                   canceladas: 1
  *                   salas_utilizadas: 7
  *               reservas:
@@ -363,6 +369,8 @@ router.get('/semanal', async (req, res) => {
       pool.query(
         `SELECT
            COUNT(*) FILTER (WHERE status != 'cancelada') AS total_reservas,
+           COUNT(*) FILTER (WHERE status = 'ativa')      AS ativas,
+           COUNT(*) FILTER (WHERE status = 'concluida')  AS concluidas,
            COUNT(*) FILTER (WHERE status = 'cancelada')  AS canceladas,
            COUNT(DISTINCT sala_id) FILTER (WHERE status != 'cancelada') AS salas_utilizadas
          FROM reserva
@@ -383,6 +391,8 @@ router.get('/semanal', async (req, res) => {
         `SELECT
            data,
            COUNT(*) FILTER (WHERE status != 'cancelada') AS total_reservas,
+           COUNT(*) FILTER (WHERE status = 'ativa')      AS ativas,
+           COUNT(*) FILTER (WHERE status = 'concluida')  AS concluidas,
            COUNT(*) FILTER (WHERE status = 'cancelada')  AS canceladas,
            COUNT(DISTINCT sala_id) FILTER (WHERE status != 'cancelada') AS salas_utilizadas
          FROM reserva
@@ -412,6 +422,8 @@ router.get('/semanal', async (req, res) => {
       data_fim,
       resumo: {
         total_reservas:   parseInt(r.total_reservas),
+        ativas:           parseInt(r.ativas),
+        concluidas:       parseInt(r.concluidas),
         canceladas:       parseInt(r.canceladas),
         salas_utilizadas: parseInt(r.salas_utilizadas),
       },
@@ -425,6 +437,8 @@ router.get('/semanal', async (req, res) => {
       por_dia: porDiaResult.rows.map(d => ({
         data:             d.data,
         total_reservas:   parseInt(d.total_reservas),
+        ativas:           parseInt(d.ativas),
+        concluidas:       parseInt(d.concluidas),
         canceladas:       parseInt(d.canceladas),
         salas_utilizadas: parseInt(d.salas_utilizadas),
       })),
@@ -511,6 +525,8 @@ router.get('/semanal', async (req, res) => {
  *               ano: 2026
  *               resumo:
  *                 total_reservas: 180
+ *                 ativas: 150
+ *                 concluidas: 18
  *                 canceladas: 12
  *                 salas_utilizadas: 15
  *                 professores_ativos: 22
@@ -523,6 +539,8 @@ router.get('/semanal', async (req, res) => {
  *               por_dia:
  *                 - data: "2026-04-01"
  *                   total_reservas: 10
+ *                   ativas: 8
+ *                   concluidas: 1
  *                   canceladas: 1
  *                   salas_utilizadas: 6
  *           application/pdf:
@@ -558,6 +576,8 @@ router.get('/mensal', async (req, res) => {
       pool.query(
         `SELECT
            COUNT(*) FILTER (WHERE status != 'cancelada')        AS total_reservas,
+           COUNT(*) FILTER (WHERE status = 'ativa')             AS ativas,
+           COUNT(*) FILTER (WHERE status = 'concluida')         AS concluidas,
            COUNT(*) FILTER (WHERE status = 'cancelada')         AS canceladas,
            COUNT(DISTINCT sala_id)    FILTER (WHERE status != 'cancelada') AS salas_utilizadas,
            COUNT(DISTINCT usuario_id) FILTER (WHERE status != 'cancelada') AS professores_ativos
@@ -582,6 +602,8 @@ router.get('/mensal', async (req, res) => {
         `SELECT
            data,
            COUNT(*) FILTER (WHERE status != 'cancelada') AS total_reservas,
+           COUNT(*) FILTER (WHERE status = 'ativa')      AS ativas,
+           COUNT(*) FILTER (WHERE status = 'concluida')  AS concluidas,
            COUNT(*) FILTER (WHERE status = 'cancelada')  AS canceladas,
            COUNT(DISTINCT sala_id) FILTER (WHERE status != 'cancelada') AS salas_utilizadas
          FROM reserva
@@ -599,6 +621,8 @@ router.get('/mensal', async (req, res) => {
       ano,
       resumo: {
         total_reservas:     parseInt(r.total_reservas),
+        ativas:             parseInt(r.ativas),
+        concluidas:         parseInt(r.concluidas),
         canceladas:         parseInt(r.canceladas),
         salas_utilizadas:   parseInt(r.salas_utilizadas),
         professores_ativos: parseInt(r.professores_ativos),
@@ -613,6 +637,8 @@ router.get('/mensal', async (req, res) => {
       por_dia: porDiaResult.rows.map(d => ({
         data:             d.data,
         total_reservas:   parseInt(d.total_reservas),
+        ativas:           parseInt(d.ativas),
+        concluidas:       parseInt(d.concluidas),
         canceladas:       parseInt(d.canceladas),
         salas_utilizadas: parseInt(d.salas_utilizadas),
       })),
@@ -701,6 +727,8 @@ router.get('/mensal', async (req, res) => {
  *                 fim: "2026-06-30"
  *               resumo:
  *                 total_reservas: 820
+ *                 ativas: 680
+ *                 concluidas: 92
  *                 canceladas: 48
  *                 salas_utilizadas: 18
  *               por_sala:
@@ -713,11 +741,15 @@ router.get('/mensal', async (req, res) => {
  *                 - mes: 1
  *                   nome_mes: "Janeiro"
  *                   total_reservas: 95
+ *                   ativas: 82
+ *                   concluidas: 8
  *                   canceladas: 5
  *                   salas_utilizadas: 12
  *                 - mes: 2
  *                   nome_mes: "Fevereiro"
  *                   total_reservas: 140
+ *                   ativas: 118
+ *                   concluidas: 14
  *                   canceladas: 8
  *                   salas_utilizadas: 15
  *           application/pdf:
@@ -757,6 +789,8 @@ router.get('/semestral', async (req, res) => {
       pool.query(
         `SELECT
            COUNT(*) FILTER (WHERE status != 'cancelada')        AS total_reservas,
+           COUNT(*) FILTER (WHERE status = 'ativa')             AS ativas,
+           COUNT(*) FILTER (WHERE status = 'concluida')         AS concluidas,
            COUNT(*) FILTER (WHERE status = 'cancelada')         AS canceladas,
            COUNT(DISTINCT sala_id) FILTER (WHERE status != 'cancelada') AS salas_utilizadas
          FROM reserva
@@ -777,6 +811,8 @@ router.get('/semestral', async (req, res) => {
         `SELECT
            EXTRACT(MONTH FROM data)::int                        AS mes,
            COUNT(*) FILTER (WHERE status != 'cancelada')        AS total_reservas,
+           COUNT(*) FILTER (WHERE status = 'ativa')             AS ativas,
+           COUNT(*) FILTER (WHERE status = 'concluida')         AS concluidas,
            COUNT(*) FILTER (WHERE status = 'cancelada')         AS canceladas,
            COUNT(DISTINCT sala_id) FILTER (WHERE status != 'cancelada') AS salas_utilizadas
          FROM reserva
@@ -794,6 +830,8 @@ router.get('/semestral', async (req, res) => {
       periodo: { inicio: dataInicio, fim: dataFim },
       resumo: {
         total_reservas:   parseInt(r.total_reservas),
+        ativas:           parseInt(r.ativas),
+        concluidas:       parseInt(r.concluidas),
         canceladas:       parseInt(r.canceladas),
         salas_utilizadas: parseInt(r.salas_utilizadas),
       },
@@ -808,6 +846,8 @@ router.get('/semestral', async (req, res) => {
         mes:              m.mes,
         nome_mes:         MESES[m.mes],
         total_reservas:   parseInt(m.total_reservas),
+        ativas:           parseInt(m.ativas),
+        concluidas:       parseInt(m.concluidas),
         canceladas:       parseInt(m.canceladas),
         salas_utilizadas: parseInt(m.salas_utilizadas),
       })),
