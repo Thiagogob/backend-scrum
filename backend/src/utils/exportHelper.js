@@ -83,15 +83,15 @@ function csvSemanal({ data_inicio, data_fim, resumo, por_dia, reservas }) {
     {
       titulo: `Relatório Semanal — ${fmtDate(data_inicio)} a ${fmtDate(data_fim)}`,
       linhas: [
-        ['Total Reservas', 'Canceladas', 'Salas Utilizadas'],
-        [resumo.total_reservas, resumo.canceladas, resumo.salas_utilizadas],
+        ['Total Reservas', 'Ativas', 'Concluídas', 'Canceladas', 'Salas Utilizadas'],
+        [resumo.total_reservas, resumo.ativas, resumo.concluidas, resumo.canceladas, resumo.salas_utilizadas],
       ],
     },
     {
       titulo: 'Por Dia',
       linhas: [
-        ['Data', 'Total Reservas', 'Canceladas', 'Salas Utilizadas'],
-        ...por_dia.map(d => [fmtDate(d.data), d.total_reservas, d.canceladas, d.salas_utilizadas]),
+        ['Data', 'Total Reservas', 'Ativas', 'Concluídas', 'Canceladas', 'Salas Utilizadas'],
+        ...por_dia.map(d => [fmtDate(d.data), d.total_reservas, d.ativas, d.concluidas, d.canceladas, d.salas_utilizadas]),
       ],
     },
     {
@@ -112,8 +112,8 @@ function csvMensal({ nome_mes, ano, resumo, por_sala, por_dia }) {
     {
       titulo: `Relatório Mensal — ${nome_mes} / ${ano}`,
       linhas: [
-        ['Total Reservas', 'Canceladas', 'Salas Utilizadas', 'Professores Ativos'],
-        [resumo.total_reservas, resumo.canceladas, resumo.salas_utilizadas, resumo.professores_ativos],
+        ['Total Reservas', 'Ativas', 'Concluídas', 'Canceladas', 'Salas Utilizadas', 'Professores Ativos'],
+        [resumo.total_reservas, resumo.ativas, resumo.concluidas, resumo.canceladas, resumo.salas_utilizadas, resumo.professores_ativos],
       ],
     },
     {
@@ -126,8 +126,8 @@ function csvMensal({ nome_mes, ano, resumo, por_sala, por_dia }) {
     {
       titulo: 'Por Dia',
       linhas: [
-        ['Data', 'Total Reservas', 'Canceladas', 'Salas Utilizadas'],
-        ...por_dia.map(d => [fmtDate(d.data), d.total_reservas, d.canceladas, d.salas_utilizadas]),
+        ['Data', 'Total Reservas', 'Ativas', 'Concluídas', 'Canceladas', 'Salas Utilizadas'],
+        ...por_dia.map(d => [fmtDate(d.data), d.total_reservas, d.ativas, d.concluidas, d.canceladas, d.salas_utilizadas]),
       ],
     },
   ]);
@@ -138,15 +138,15 @@ function csvSemestral({ semestre, ano, periodo, resumo, por_mes }) {
     {
       titulo: `Relatório Semestral — ${semestre}º Semestre / ${ano}`,
       linhas: [
-        ['Total Reservas', 'Canceladas', 'Salas Utilizadas'],
-        [resumo.total_reservas, resumo.canceladas, resumo.salas_utilizadas],
+        ['Total Reservas', 'Ativas', 'Concluídas', 'Canceladas', 'Salas Utilizadas'],
+        [resumo.total_reservas, resumo.ativas, resumo.concluidas, resumo.canceladas, resumo.salas_utilizadas],
       ],
     },
     {
       titulo: 'Por Mês',
       linhas: [
-        ['Mês', 'Nome', 'Total Reservas', 'Canceladas', 'Salas Utilizadas'],
-        ...por_mes.map(m => [m.mes, m.nome_mes, m.total_reservas, m.canceladas, m.salas_utilizadas]),
+        ['Mês', 'Nome', 'Total Reservas', 'Ativas', 'Concluídas', 'Canceladas', 'Salas Utilizadas'],
+        ...por_mes.map(m => [m.mes, m.nome_mes, m.total_reservas, m.ativas, m.concluidas, m.canceladas, m.salas_utilizadas]),
       ],
     },
   ]);
@@ -343,16 +343,20 @@ function pdfSemanal({ data_inicio, data_fim, resumo, por_dia, reservas }) {
     y += 14;
     y = pdfMetrics(doc, y, [
       { label: 'Total Reservas',   value: resumo.total_reservas },
+      { label: 'Ativas',           value: resumo.ativas },
+      { label: 'Concluídas',       value: resumo.concluidas },
       { label: 'Canceladas',       value: resumo.canceladas },
       { label: 'Salas Utilizadas', value: resumo.salas_utilizadas },
     ]);
     y = pdfSection(doc, y, 'Ocupação por Dia');
     y = pdfTable(doc, y, [
-      { label: 'Data',             width: 120 },
-      { label: 'Total Reservas',   width: 135, align: 'center' },
-      { label: 'Canceladas',       width: 125, align: 'center' },
-      { label: 'Salas Utilizadas', width: 135, align: 'center' },
-    ], por_dia.map(d => [fmtDate(d.data), d.total_reservas, d.canceladas, d.salas_utilizadas]));
+      { label: 'Data',             width: 90 },
+      { label: 'Total Reservas',   width: 85, align: 'center' },
+      { label: 'Ativas',           width: 80, align: 'center' },
+      { label: 'Concluídas',       width: 80, align: 'center' },
+      { label: 'Canceladas',       width: 95, align: 'center' },
+      { label: 'Salas Utilizadas', width: 85, align: 'center' },
+    ], por_dia.map(d => [fmtDate(d.data), d.total_reservas, d.ativas, d.concluidas, d.canceladas, d.salas_utilizadas]));
     y += 6;
     y = pdfSection(doc, y, 'Reservas do Período');
     pdfTable(doc, y, [
@@ -378,6 +382,8 @@ function pdfMensal({ nome_mes, ano, resumo, por_sala, por_dia }) {
     y += 14;
     y = pdfMetrics(doc, y, [
       { label: 'Total Reservas',     value: resumo.total_reservas },
+      { label: 'Ativas',             value: resumo.ativas },
+      { label: 'Concluídas',         value: resumo.concluidas },
       { label: 'Canceladas',         value: resumo.canceladas },
       { label: 'Salas Utilizadas',   value: resumo.salas_utilizadas },
       { label: 'Professores Ativos', value: resumo.professores_ativos },
@@ -392,11 +398,13 @@ function pdfMensal({ nome_mes, ano, resumo, por_sala, por_dia }) {
     y += 6;
     y = pdfSection(doc, y, 'Reservas por Dia');
     pdfTable(doc, y, [
-      { label: 'Data',             width: 130 },
-      { label: 'Total Reservas',   width: 130, align: 'center' },
-      { label: 'Canceladas',       width: 125, align: 'center' },
-      { label: 'Salas Utilizadas', width: 130, align: 'center' },
-    ], por_dia.map(d => [fmtDate(d.data), d.total_reservas, d.canceladas, d.salas_utilizadas]));
+      { label: 'Data',             width: 85 },
+      { label: 'Total Reservas',   width: 85, align: 'center' },
+      { label: 'Ativas',           width: 80, align: 'center' },
+      { label: 'Concluídas',       width: 80, align: 'center' },
+      { label: 'Canceladas',       width: 95, align: 'center' },
+      { label: 'Salas Utilizadas', width: 90, align: 'center' },
+    ], por_dia.map(d => [fmtDate(d.data), d.total_reservas, d.ativas, d.concluidas, d.canceladas, d.salas_utilizadas]));
   });
 }
 
@@ -407,16 +415,20 @@ function pdfSemestral({ semestre, ano, periodo, resumo, por_mes }) {
     y += 14;
     y = pdfMetrics(doc, y, [
       { label: 'Total Reservas',   value: resumo.total_reservas },
+      { label: 'Ativas',           value: resumo.ativas },
+      { label: 'Concluídas',       value: resumo.concluidas },
       { label: 'Canceladas',       value: resumo.canceladas },
       { label: 'Salas Utilizadas', value: resumo.salas_utilizadas },
     ]);
     y = pdfSection(doc, y, 'Utilização por Mês');
     pdfTable(doc, y, [
-      { label: 'Mês',              width: 130 },
-      { label: 'Total Reservas',   width: 130, align: 'center' },
-      { label: 'Canceladas',       width: 130, align: 'center' },
-      { label: 'Salas Utilizadas', width: 125, align: 'center' },
-    ], por_mes.map(m => [m.nome_mes, m.total_reservas, m.canceladas, m.salas_utilizadas]));
+      { label: 'Mês',              width: 95 },
+      { label: 'Total Reservas',   width: 90, align: 'center' },
+      { label: 'Ativas',           width: 80, align: 'center' },
+      { label: 'Concluídas',       width: 80, align: 'center' },
+      { label: 'Canceladas',       width: 85, align: 'center' },
+      { label: 'Salas Utilizadas', width: 85, align: 'center' },
+    ], por_mes.map(m => [m.nome_mes, m.total_reservas, m.ativas, m.concluidas, m.canceladas, m.salas_utilizadas]));
   });
 }
 
