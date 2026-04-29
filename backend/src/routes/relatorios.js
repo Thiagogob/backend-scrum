@@ -178,7 +178,8 @@ router.get('/diario', async (req, res) => {
            COUNT(*) FILTER (WHERE status = 'ativa')             AS ativas,
            COUNT(*) FILTER (WHERE status = 'concluida')         AS concluidas,
            COUNT(*) FILTER (WHERE status = 'cancelada')         AS canceladas,
-           COUNT(DISTINCT sala_id) FILTER (WHERE status != 'cancelada') AS salas_utilizadas
+           COUNT(DISTINCT sala_id)    FILTER (WHERE status != 'cancelada') AS salas_utilizadas,
+           COUNT(DISTINCT usuario_id) FILTER (WHERE status != 'cancelada') AS professores_ativos
          FROM reserva
          WHERE data = $1`,
         [data]
@@ -212,11 +213,12 @@ router.get('/diario', async (req, res) => {
     const payload = {
       data,
       resumo: {
-        total_reservas:   parseInt(r.total_reservas),
-        ativas:           parseInt(r.ativas),
-        concluidas:       parseInt(r.concluidas),
-        canceladas:       parseInt(r.canceladas),
-        salas_utilizadas: parseInt(r.salas_utilizadas),
+        total_reservas:     parseInt(r.total_reservas),
+        ativas:             parseInt(r.ativas),
+        concluidas:         parseInt(r.concluidas),
+        canceladas:         parseInt(r.canceladas),
+        salas_utilizadas:   parseInt(r.salas_utilizadas),
+        professores_ativos: parseInt(r.professores_ativos),
       },
       por_sala: porSalaResult.rows.map(s => ({
         sala_id:        s.sala_id,
@@ -368,11 +370,12 @@ router.get('/semanal', async (req, res) => {
     const [resumoResult, porSalaResult, porDiaResult, reservasResult] = await Promise.all([
       pool.query(
         `SELECT
-           COUNT(*) FILTER (WHERE status != 'cancelada') AS total_reservas,
-           COUNT(*) FILTER (WHERE status = 'ativa')      AS ativas,
-           COUNT(*) FILTER (WHERE status = 'concluida')  AS concluidas,
-           COUNT(*) FILTER (WHERE status = 'cancelada')  AS canceladas,
-           COUNT(DISTINCT sala_id) FILTER (WHERE status != 'cancelada') AS salas_utilizadas
+           COUNT(*) FILTER (WHERE status != 'cancelada')        AS total_reservas,
+           COUNT(*) FILTER (WHERE status = 'ativa')             AS ativas,
+           COUNT(*) FILTER (WHERE status = 'concluida')         AS concluidas,
+           COUNT(*) FILTER (WHERE status = 'cancelada')         AS canceladas,
+           COUNT(DISTINCT sala_id)    FILTER (WHERE status != 'cancelada') AS salas_utilizadas,
+           COUNT(DISTINCT usuario_id) FILTER (WHERE status != 'cancelada') AS professores_ativos
          FROM reserva
          WHERE data BETWEEN $1 AND $2`,
         [data_inicio, data_fim]
@@ -421,11 +424,12 @@ router.get('/semanal', async (req, res) => {
       data_inicio,
       data_fim,
       resumo: {
-        total_reservas:   parseInt(r.total_reservas),
-        ativas:           parseInt(r.ativas),
-        concluidas:       parseInt(r.concluidas),
-        canceladas:       parseInt(r.canceladas),
-        salas_utilizadas: parseInt(r.salas_utilizadas),
+        total_reservas:     parseInt(r.total_reservas),
+        ativas:             parseInt(r.ativas),
+        concluidas:         parseInt(r.concluidas),
+        canceladas:         parseInt(r.canceladas),
+        salas_utilizadas:   parseInt(r.salas_utilizadas),
+        professores_ativos: parseInt(r.professores_ativos),
       },
       por_sala: porSalaResult.rows.map(s => ({
         sala_id:        s.sala_id,
@@ -792,7 +796,8 @@ router.get('/semestral', async (req, res) => {
            COUNT(*) FILTER (WHERE status = 'ativa')             AS ativas,
            COUNT(*) FILTER (WHERE status = 'concluida')         AS concluidas,
            COUNT(*) FILTER (WHERE status = 'cancelada')         AS canceladas,
-           COUNT(DISTINCT sala_id) FILTER (WHERE status != 'cancelada') AS salas_utilizadas
+           COUNT(DISTINCT sala_id)    FILTER (WHERE status != 'cancelada') AS salas_utilizadas,
+           COUNT(DISTINCT usuario_id) FILTER (WHERE status != 'cancelada') AS professores_ativos
          FROM reserva
          WHERE data BETWEEN $1 AND $2`,
         [dataInicio, dataFim]
@@ -829,11 +834,12 @@ router.get('/semestral', async (req, res) => {
       ano,
       periodo: { inicio: dataInicio, fim: dataFim },
       resumo: {
-        total_reservas:   parseInt(r.total_reservas),
-        ativas:           parseInt(r.ativas),
-        concluidas:       parseInt(r.concluidas),
-        canceladas:       parseInt(r.canceladas),
-        salas_utilizadas: parseInt(r.salas_utilizadas),
+        total_reservas:     parseInt(r.total_reservas),
+        ativas:             parseInt(r.ativas),
+        concluidas:         parseInt(r.concluidas),
+        canceladas:         parseInt(r.canceladas),
+        salas_utilizadas:   parseInt(r.salas_utilizadas),
+        professores_ativos: parseInt(r.professores_ativos),
       },
       por_sala: porSalaResult.rows.map(s => ({
         sala_id:        s.sala_id,

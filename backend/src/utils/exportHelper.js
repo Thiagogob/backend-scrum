@@ -61,8 +61,8 @@ function csvDiario({ data, resumo, reservas }) {
     {
       titulo: `Relatório Diário — ${fmtDate(data)}`,
       linhas: [
-        ['Total Reservas', 'Ativas', 'Concluídas', 'Canceladas', 'Salas Utilizadas'],
-        [resumo.total_reservas, resumo.ativas, resumo.concluidas, resumo.canceladas, resumo.salas_utilizadas],
+        ['Total Reservas', 'Ativas', 'Concluídas', 'Canceladas', 'Salas Utilizadas', 'Professores Ativos'],
+        [resumo.total_reservas, resumo.ativas, resumo.concluidas, resumo.canceladas, resumo.salas_utilizadas, resumo.professores_ativos],
       ],
     },
     {
@@ -83,8 +83,8 @@ function csvSemanal({ data_inicio, data_fim, resumo, por_dia, reservas }) {
     {
       titulo: `Relatório Semanal — ${fmtDate(data_inicio)} a ${fmtDate(data_fim)}`,
       linhas: [
-        ['Total Reservas', 'Ativas', 'Concluídas', 'Canceladas', 'Salas Utilizadas'],
-        [resumo.total_reservas, resumo.ativas, resumo.concluidas, resumo.canceladas, resumo.salas_utilizadas],
+        ['Total Reservas', 'Ativas', 'Concluídas', 'Canceladas', 'Salas Utilizadas', 'Professores Ativos'],
+        [resumo.total_reservas, resumo.ativas, resumo.concluidas, resumo.canceladas, resumo.salas_utilizadas, resumo.professores_ativos],
       ],
     },
     {
@@ -138,8 +138,8 @@ function csvSemestral({ semestre, ano, periodo, resumo, por_mes }) {
     {
       titulo: `Relatório Semestral — ${semestre}º Semestre / ${ano}`,
       linhas: [
-        ['Total Reservas', 'Ativas', 'Concluídas', 'Canceladas', 'Salas Utilizadas'],
-        [resumo.total_reservas, resumo.ativas, resumo.concluidas, resumo.canceladas, resumo.salas_utilizadas],
+        ['Total Reservas', 'Ativas', 'Concluídas', 'Canceladas', 'Salas Utilizadas', 'Professores Ativos'],
+        [resumo.total_reservas, resumo.ativas, resumo.concluidas, resumo.canceladas, resumo.salas_utilizadas, resumo.professores_ativos],
       ],
     },
     {
@@ -313,11 +313,12 @@ function pdfDiario({ data, resumo, reservas }) {
     let y = pdfHeader(doc, 'Relatório Diário', `Data: ${fmtDate(data)}`);
     y += 14;
     y = pdfMetrics(doc, y, [
-      { label: 'Total Reservas',   value: resumo.total_reservas },
-      { label: 'Ativas',           value: resumo.ativas },
-      { label: 'Concluídas',       value: resumo.concluidas },
-      { label: 'Canceladas',       value: resumo.canceladas },
-      { label: 'Salas Utilizadas', value: resumo.salas_utilizadas },
+      { label: 'Total Reservas',     value: resumo.total_reservas },
+      { label: 'Ativas',             value: resumo.ativas },
+      { label: 'Concluídas',         value: resumo.concluidas },
+      { label: 'Canceladas',         value: resumo.canceladas },
+      { label: 'Salas Utilizadas',   value: resumo.salas_utilizadas },
+      { label: 'Professores Ativos', value: resumo.professores_ativos },
     ]);
     y = pdfSection(doc, y, 'Reservas do Dia');
     pdfTable(doc, y, [
@@ -342,11 +343,12 @@ function pdfSemanal({ data_inicio, data_fim, resumo, por_dia, reservas }) {
     let y = pdfHeader(doc, 'Relatório Semanal', `Período: ${fmtDate(data_inicio)} a ${fmtDate(data_fim)}`);
     y += 14;
     y = pdfMetrics(doc, y, [
-      { label: 'Total Reservas',   value: resumo.total_reservas },
-      { label: 'Ativas',           value: resumo.ativas },
-      { label: 'Concluídas',       value: resumo.concluidas },
-      { label: 'Canceladas',       value: resumo.canceladas },
-      { label: 'Salas Utilizadas', value: resumo.salas_utilizadas },
+      { label: 'Total Reservas',     value: resumo.total_reservas },
+      { label: 'Ativas',             value: resumo.ativas },
+      { label: 'Concluídas',         value: resumo.concluidas },
+      { label: 'Canceladas',         value: resumo.canceladas },
+      { label: 'Salas Utilizadas',   value: resumo.salas_utilizadas },
+      { label: 'Professores Ativos', value: resumo.professores_ativos },
     ]);
     y = pdfSection(doc, y, 'Ocupação por Dia');
     y = pdfTable(doc, y, [
@@ -414,11 +416,12 @@ function pdfSemestral({ semestre, ano, periodo, resumo, por_mes }) {
     let y = pdfHeader(doc, 'Relatório Semestral', `${label} / ${ano}   (${fmtDate(periodo.inicio)} a ${fmtDate(periodo.fim)})`);
     y += 14;
     y = pdfMetrics(doc, y, [
-      { label: 'Total Reservas',   value: resumo.total_reservas },
-      { label: 'Ativas',           value: resumo.ativas },
-      { label: 'Concluídas',       value: resumo.concluidas },
-      { label: 'Canceladas',       value: resumo.canceladas },
-      { label: 'Salas Utilizadas', value: resumo.salas_utilizadas },
+      { label: 'Total Reservas',     value: resumo.total_reservas },
+      { label: 'Ativas',             value: resumo.ativas },
+      { label: 'Concluídas',         value: resumo.concluidas },
+      { label: 'Canceladas',         value: resumo.canceladas },
+      { label: 'Salas Utilizadas',   value: resumo.salas_utilizadas },
+      { label: 'Professores Ativos', value: resumo.professores_ativos },
     ]);
     y = pdfSection(doc, y, 'Utilização por Mês');
     pdfTable(doc, y, [
